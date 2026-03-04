@@ -193,7 +193,6 @@ body {
   font-size: 0.7rem;
   color: #888;
   margin-bottom: 4px;
-  white-space: nowrap;
 }
 
 .tooltip-header strong {
@@ -209,7 +208,6 @@ body {
 .tooltip-change {
   font-size: 0.65rem;
   padding: 2px 0;
-  white-space: nowrap;
 }
 
 .tooltip-change.improve {
@@ -727,6 +725,12 @@ body {
 .tile-small.called-tile {
   transform: rotate(90deg);
   margin: 0 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.tile-small.called-tile .tile-char-meld {
+  transform: translateY(-1px);
 }
 
 .tile-char-meld {
