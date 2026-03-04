@@ -68,6 +68,9 @@ export type ScoreParams = {
   roundWind: TileId     // 27=East for now
   isRiichi: boolean
   isRinshan: boolean    // win on kan replacement draw
+  isIppatsu: boolean    // win within first go-around after riichi
+  isHaitei: boolean     // last tile situation (tsumo=Haitei, ron=Houtei)
+  isDoubleRiichi: boolean // riichi declared on first turn
 }
 
 export type ScoreYaku = {

@@ -26,9 +26,14 @@ export function calculateScore(
   params: ScoreParams,
 ): ScoreResult | null {
   const isClosed = openMelds.length === 0 || openMelds.every(m => m.type === 'ankan')
-  const allTiles = [...closedHand]
+  const candidates: (ScoreResult | null)[] = []
 
-  // Check for chiitoitsu (seven pairs) — special case, closed only
+  // Kokushi (closed, 14 tiles, no open melds at all)
+  if (isClosed && closedHand.length === 14 && openMelds.length === 0) {
+    candidates.push(scoreKokushi(closedHand, params))
+  }
+
+  // Chiitoitsu (closed, 14 tiles, 7 pairs)
   if (isClosed && closedHand.length === 14) {
     const counts = handToCountArray(closedHand)
     let pairs = 0
@@ -36,16 +41,18 @@ export function calculateScore(
       if (counts[i] === 2) pairs++
     }
     if (pairs === 7) {
-      const chiitoiResult = scoreChiitoitsu(closedHand, params)
-      // Still try standard decomposition and pick the better one
-      const standardResult = scoreStandardDecomposition(closedHand, openMelds, params)
-      if (!standardResult) return chiitoiResult
-      if (!chiitoiResult) return standardResult
-      return chiitoiResult.totalPoints >= standardResult.totalPoints ? chiitoiResult : standardResult
+      candidates.push(scoreChiitoitsu(closedHand, params))
     }
   }
 
-  return scoreStandardDecomposition(closedHand, openMelds, params)
+  // Standard decomposition (always try)
+  candidates.push(scoreStandardDecomposition(closedHand, openMelds, params))
+
+  // Return best result by points, then han
+  return candidates
+    .filter((r): r is ScoreResult => r !== null)
+    .sort((a, b) => b.totalPoints - a.totalPoints || b.totalHan - a.totalHan)
+    [0] || null
 }
 
 // --- Chiitoitsu scoring ---
@@ -72,6 +79,17 @@ function scoreChiitoitsu(closedHand: TileId[], params: ScoreParams): ScoreResult
     yaku.push({ name: 'All Simples', japanese: 'Tanyao', han: 1, open: false })
   }
 
+  // Honroutou (all terminals and honors)
+  {
+    let allTermHonor = true
+    for (let i = 0; i < 34; i++) {
+      if (counts[i] > 0 && !isTerminal(i) && !isHonor(i)) { allTermHonor = false; break }
+    }
+    if (allTermHonor) {
+      yaku.push({ name: 'All Terminals & Honors', japanese: 'Honroutou', han: 2, open: false })
+    }
+  }
+
   // Honitsu check
   for (let suit = 0; suit < 3; suit++) {
     let onlySuitAndHonors = true
@@ -90,9 +108,24 @@ function scoreChiitoitsu(closedHand: TileId[], params: ScoreParams): ScoreResult
     }
   }
 
-  // Riichi (future)
+  // Riichi / Double Riichi
   if (params.isRiichi) {
-    yaku.push({ name: 'Riichi', japanese: 'Riichi', han: 1, open: false })
+    if (params.isDoubleRiichi) {
+      yaku.push({ name: 'Double Riichi', japanese: 'Double Riichi', han: 2, open: false })
+    } else {
+      yaku.push({ name: 'Riichi', japanese: 'Riichi', han: 1, open: false })
+    }
+    if (params.isIppatsu) {
+      yaku.push({ name: 'One-Shot', japanese: 'Ippatsu', han: 1, open: false })
+    }
+  }
+
+  // Haitei Raoyue / Houtei Raoyui
+  if (params.isTsumo && params.isHaitei) {
+    yaku.push({ name: 'Last Tile Draw', japanese: 'Haitei Raoyue', han: 1, open: false })
+  }
+  if (!params.isTsumo && params.isHaitei) {
+    yaku.push({ name: 'Last Tile Discard', japanese: 'Houtei Raoyui', han: 1, open: false })
   }
 
   if (yaku.length === 0) return null
@@ -114,6 +147,36 @@ function scoreChiitoitsu(closedHand: TileId[], params: ScoreParams): ScoreResult
     isTsumo: params.isTsumo,
     isDealer: params.isDealer,
     totalPoints: payments.totalPoints,
+  }
+}
+
+// --- Kokushi scoring ---
+
+function scoreKokushi(closedHand: TileId[], params: ScoreParams): ScoreResult | null {
+  if (closedHand.length !== 14) return null
+  const counts = handToCountArray(closedHand)
+  const required = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33] // 13 terminal/honor types
+  let hasPair = false
+  for (const t of required) {
+    if (counts[t] === 0) return null
+    if (counts[t] === 2) hasPair = true
+  }
+  if (!hasPair) return null
+
+  const yaku: ScoreYaku[] = [
+    { name: 'Thirteen Orphans', japanese: 'Kokushi Musou', han: 13, open: false }
+  ]
+  const totalHan = 13
+  const fu = 30 // doesn't matter at yakuman level
+  const { base, limit } = calculateBasePoints(totalHan, fu)
+  const payments = calculatePayments(base, params.isDealer, params.isTsumo)
+
+  return {
+    yaku, totalHan, fu, basePoints: base,
+    dealerTsumoEach: payments.dealerTsumoEach,
+    limitName: limit, waitType: 'tanki',
+    isClosed: true, isTsumo: params.isTsumo,
+    isDealer: params.isDealer, totalPoints: payments.totalPoints,
   }
 }
 
@@ -284,14 +347,32 @@ function identifyYaku(
     yaku.push({ name: 'Self Draw', japanese: 'Menzen Tsumo', han: 1, open: false })
   }
 
-  // Riichi (future)
+  // Riichi / Double Riichi
   if (params.isRiichi && isClosed) {
-    yaku.push({ name: 'Riichi', japanese: 'Riichi', han: 1, open: false })
+    if (params.isDoubleRiichi) {
+      yaku.push({ name: 'Double Riichi', japanese: 'Double Riichi', han: 2, open: false })
+    } else {
+      yaku.push({ name: 'Riichi', japanese: 'Riichi', han: 1, open: false })
+    }
+    // Ippatsu (win within first go-around after riichi)
+    if (params.isIppatsu) {
+      yaku.push({ name: 'One-Shot', japanese: 'Ippatsu', han: 1, open: false })
+    }
   }
 
   // Rinshan Kaihou (win on kan replacement draw)
   if (params.isTsumo && params.isRinshan) {
     yaku.push({ name: 'After a Kan', japanese: 'Rinshan Kaihou', han: 1, open: !isClosed })
+  }
+
+  // Haitei Raoyue (last tile draw — tsumo, not rinshan)
+  if (params.isTsumo && params.isHaitei && !params.isRinshan) {
+    yaku.push({ name: 'Last Tile Draw', japanese: 'Haitei Raoyue', han: 1, open: !isClosed })
+  }
+
+  // Houtei Raoyui (last tile discard — ron)
+  if (!params.isTsumo && params.isHaitei) {
+    yaku.push({ name: 'Last Tile Discard', japanese: 'Houtei Raoyui', han: 1, open: !isClosed })
   }
 
   // Tanyao (all simples)
@@ -308,13 +389,17 @@ function identifyYaku(
     }
   }
 
-  // Iipeiko (two identical sequences, closed)
+  // Iipeiko / Ryanpeiko (identical sequences, closed only)
   if (isClosed) {
-    const seqKeys = mentsu
-      .filter(m => m.type === 'shuntsu')
-      .map(m => m.tiles.join(','))
-    const seqSet = new Set(seqKeys)
-    if (seqKeys.length > seqSet.size) {
+    const seqs = mentsu
+      .filter(m => m.type === 'shuntsu' && !m.isOpen)
+      .map(m => m.tiles[0])
+    const seqCounts: Record<number, number> = {}
+    for (const s of seqs) seqCounts[s] = (seqCounts[s] || 0) + 1
+    const pairsOfSeqs = Object.values(seqCounts).filter(c => c >= 2).length
+    if (pairsOfSeqs >= 2) {
+      yaku.push({ name: 'Twice Double Sequence', japanese: 'Ryanpeiko', han: 3, open: false })
+    } else if (pairsOfSeqs === 1) {
       yaku.push({ name: 'Double Sequence', japanese: 'Iipeiko', han: 1, open: false })
     }
   }
@@ -343,16 +428,22 @@ function identifyYaku(
     yaku.push({ name: 'All Triplets', japanese: 'Toitoi', han: 2, open: !isClosed })
   }
 
-  // Chanta (every group has terminal/honor)
+  // Junchan / Chanta (every group has terminal/honor)
   {
-    const chanta = mentsu.every(m => {
-      return m.tiles.some(t => isTerminal(t) || isHonor(t))
-    }) && (isTerminal(pair) || isHonor(pair))
-    if (chanta) {
-      // Check if there are both number tiles and honors (otherwise it might be junchan or honroutou)
+    const allGroupsHaveTermOrHonor = mentsu.every(m =>
+      m.tiles.some(t => isTerminal(t) || isHonor(t))
+    ) && (isTerminal(pair) || isHonor(pair))
+    if (allGroupsHaveTermOrHonor) {
       const hasSequence = mentsu.some(m => m.type === 'shuntsu')
       if (hasSequence) {
-        yaku.push({ name: 'Outside Hand', japanese: 'Chanta', han: isClosed ? 2 : 1, open: !isClosed })
+        const hasHonors = allTiles.some(t => isHonor(t))
+        if (!hasHonors) {
+          // Junchan: terminals only, no honors (higher value)
+          yaku.push({ name: 'Terminals in All Groups', japanese: 'Junchan', han: isClosed ? 3 : 2, open: !isClosed })
+        } else {
+          // Chanta: terminals + honors
+          yaku.push({ name: 'Outside Hand', japanese: 'Chanta', han: isClosed ? 2 : 1, open: !isClosed })
+        }
       }
     }
   }
@@ -367,6 +458,58 @@ function identifyYaku(
       yaku.push({ name: 'Pure Straight', japanese: 'Ikkitsuu', han: isClosed ? 2 : 1, open: !isClosed })
       break
     }
+  }
+
+  // Sanshoku Doujun (same sequence in all 3 suits)
+  {
+    const seqStarts = mentsu.filter(m => m.type === 'shuntsu').map(m => m.tiles[0])
+    for (const start of seqStarts) {
+      const rank = start % 9
+      if (seqStarts.includes(rank) && seqStarts.includes(9 + rank) && seqStarts.includes(18 + rank)) {
+        yaku.push({ name: 'Mixed Triple Sequence', japanese: 'Sanshoku Doujun', han: isClosed ? 2 : 1, open: !isClosed })
+        break
+      }
+    }
+  }
+
+  // Sanshoku Doukou (same triplet in all 3 suits)
+  {
+    const tripTiles = mentsu.filter(m => m.type === 'koutsu' && m.tiles[0] < 27).map(m => m.tiles[0])
+    for (const t of tripTiles) {
+      const rank = t % 9
+      if (tripTiles.includes(rank) && tripTiles.includes(9 + rank) && tripTiles.includes(18 + rank)) {
+        yaku.push({ name: 'Triple Triplets', japanese: 'Sanshoku Doukou', han: 2, open: !isClosed })
+        break
+      }
+    }
+  }
+
+  // Sanankou (3 concealed triplets)
+  {
+    let concealedKoutsu = mentsu.filter(m => m.type === 'koutsu' && !m.isOpen).length
+    // Ron on shanpon: the winning triplet is considered open
+    if (!params.isTsumo && waitType === 'shanpon') concealedKoutsu--
+    if (concealedKoutsu >= 3) {
+      yaku.push({ name: 'Three Concealed Triplets', japanese: 'Sanankou', han: 2, open: !isClosed })
+    }
+  }
+
+  // Honroutou (all terminals and honors)
+  if (allTiles.every(t => isTerminal(t) || isHonor(t))) {
+    yaku.push({ name: 'All Terminals & Honors', japanese: 'Honroutou', han: 2, open: !isClosed })
+  }
+
+  // Shousangen (2 dragon triplets + dragon pair)
+  {
+    const dragonKoutsu = mentsu.filter(m => m.type === 'koutsu' && m.tiles[0] >= 31).length
+    if (dragonKoutsu === 2 && pair >= 31) {
+      yaku.push({ name: 'Little Three Dragons', japanese: 'Shousangen', han: 2, open: !isClosed })
+    }
+  }
+
+  // San Kantsu (3 kans)
+  if (mentsu.filter(m => m.isKan).length === 3) {
+    yaku.push({ name: 'Three Kans', japanese: 'San Kantsu', han: 2, open: !isClosed })
   }
 
   // Honitsu (half flush: one suit + honors)
@@ -404,6 +547,79 @@ function identifyYaku(
       break
     }
   }
+
+  // --- Yakuman ---
+
+  // Suuankou (4 concealed triplets)
+  {
+    let ck = mentsu.filter(m => m.type === 'koutsu' && !m.isOpen).length
+    if (!params.isTsumo && waitType === 'shanpon') ck--
+    if (ck === 4) {
+      yaku.push({ name: 'Four Concealed Triplets', japanese: 'Suuankou', han: 13, open: false })
+    }
+  }
+
+  // Daisangen (3 dragon triplets)
+  if (mentsu.filter(m => m.type === 'koutsu' && m.tiles[0] >= 31).length === 3) {
+    yaku.push({ name: 'Big Three Dragons', japanese: 'Daisangen', han: 13, open: !isClosed })
+  }
+
+  // Shousuushii / Daisuushii (wind triplets)
+  {
+    const windKoutsu = mentsu.filter(m => m.type === 'koutsu' && m.tiles[0] >= 27 && m.tiles[0] <= 30).length
+    if (windKoutsu === 4) {
+      yaku.push({ name: 'Big Four Winds', japanese: 'Daisuushii', han: 13, open: !isClosed })
+    } else if (windKoutsu === 3 && pair >= 27 && pair <= 30) {
+      yaku.push({ name: 'Little Four Winds', japanese: 'Shousuushii', han: 13, open: !isClosed })
+    }
+  }
+
+  // Tsuuiisou (all honors)
+  if (allTiles.every(t => isHonor(t))) {
+    yaku.push({ name: 'All Honors', japanese: 'Tsuuiisou', han: 13, open: !isClosed })
+  }
+
+  // Chinroutou (all terminals)
+  if (allTiles.every(t => isTerminal(t))) {
+    yaku.push({ name: 'All Terminals', japanese: 'Chinroutou', han: 13, open: !isClosed })
+  }
+
+  // Ryuuiisou (all green: 2s,3s,4s,6s,8s,Hatsu)
+  {
+    const greenTiles = new Set([19, 20, 21, 23, 25, 32])
+    if (allTiles.every(t => greenTiles.has(t))) {
+      yaku.push({ name: 'All Green', japanese: 'Ryuuiisou', han: 13, open: !isClosed })
+    }
+  }
+
+  // Chuuren Poutou (nine gates: 1112345678999 of one suit, closed)
+  if (isClosed) {
+    for (let suit = 0; suit < 3; suit++) {
+      const base = suit * 9
+      let allOneSuit = true
+      for (let i = 0; i < 34; i++) {
+        if (counts[i] > 0 && (i < base || i > base + 8)) { allOneSuit = false; break }
+      }
+      if (!allOneSuit) continue
+      const pattern = [3, 1, 1, 1, 1, 1, 1, 1, 3]
+      let matches = true
+      for (let i = 0; i < 9; i++) {
+        if (counts[base + i] < pattern[i]) { matches = false; break }
+      }
+      if (matches) {
+        yaku.push({ name: 'Nine Gates', japanese: 'Chuuren Poutou', han: 13, open: false })
+      }
+    }
+  }
+
+  // Suu Kantsu (4 kans)
+  if (mentsu.filter(m => m.isKan).length === 4) {
+    yaku.push({ name: 'Four Kans', japanese: 'Suu Kantsu', han: 13, open: !isClosed })
+  }
+
+  // Yakuman override: if any yakuman detected, drop all non-yakuman yaku
+  const yakumanYaku = yaku.filter(y => y.han >= 13)
+  if (yakumanYaku.length > 0) return yakumanYaku
 
   return yaku
 }

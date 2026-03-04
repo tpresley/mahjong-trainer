@@ -31,6 +31,9 @@ type AppState = {
   declinedRonTiles: TileId[]
   winMethod: 'tsumo' | 'ron' | null
   ronFromOpponent: number | null
+  isIppatsu: boolean
+  isDoubleRiichi: boolean
+  hoveredDiscardIndex: number | null
 }
 
 const initial = dealHand()
@@ -464,6 +467,9 @@ RootComponent.initialState = {
   declinedRonTiles: [],
   winMethod: null,
   ronFromOpponent: null,
+  isIppatsu: false,
+  isDoubleRiichi: false,
+  hoveredDiscardIndex: null,
   canDeclareRiichi: false,
   isFuriten: false,
   riichiValidDiscards: [],
@@ -572,8 +578,11 @@ RootComponent.calculated = {
     const waits = new Map<number, { tile: number, remaining: number, score: ScoreResult | null }>()
 
     if (hasDrawn) {
+      // During riichi_discard with a hovered tile, only show waits for that specific discard
+      const hoverIdx = state.phase === 'riichi_discard' ? state.hoveredDiscardIndex : null
       // Hand with drawn tile: find tenpai-maintaining discards, then waits for each
       for (let d = 0; d < hand.length; d++) {
+        if (hoverIdx !== null && d !== hoverIdx) continue
         const dc = [...handCounts]
         dc[hand[d]]--
         const sh = numMelds > 0 ? calculateShantenWithMelds(dc, numMelds) : calculateShanten(dc)
@@ -590,9 +599,11 @@ RootComponent.calculated = {
 
           if (!waits.has(t)) {
             const winHand = removeFromHand([...hand], [hand[d]])
+            const isRiichi = state.phase === 'riichi_discard' ? true : (state.isRiichi || false)
             const score = calculateScore([...winHand, t], openMelds, {
               winTile: t, isTsumo: true, isDealer: true,
-              seatWind: 27, roundWind: 27, isRiichi: state.isRiichi || false, isRinshan: false,
+              seatWind: 27, roundWind: 27, isRiichi, isRinshan: false,
+              isIppatsu: false, isHaitei: false, isDoubleRiichi: state.isDoubleRiichi || false,
             })
             waits.set(t, { tile: t, remaining, score })
           }
@@ -612,6 +623,7 @@ RootComponent.calculated = {
         const score = calculateScore([...hand, t], openMelds, {
           winTile: t, isTsumo: true, isDealer: true,
           seatWind: 27, roundWind: 27, isRiichi: false, isRinshan: false,
+          isIppatsu: false, isHaitei: false, isDoubleRiichi: false,
         })
         waits.set(t, { tile: t, remaining, score })
       }
@@ -623,13 +635,14 @@ RootComponent.calculated = {
     const h = state.fullHand || state.hand
     if (!h?.length) return []
     const phase = state.phase || 'user_discard'
+    const melds = state.openMelds || []
     // Only show discard analysis when user can discard
     let results: DiscardAnalysis[] = []
     if (phase === 'user_discard' || phase === 'riichi_discard') {
       if (state.drawnTile === null || state.drawnTile === undefined) return []
-      results = analyzeDiscards(h, handToCountArray(h), state.wall || [])
+      results = analyzeDiscards(h, handToCountArray(h), state.wall || [], melds)
     } else if (phase === 'post_call_discard') {
-      results = analyzeDiscards(h, handToCountArray(h), state.wall || [])
+      results = analyzeDiscards(h, handToCountArray(h), state.wall || [], melds)
     }
     // Add isDrawn flag for the DiscardResult collection component
     return results.map((d: DiscardAnalysis) => ({
@@ -662,6 +675,11 @@ RootComponent.intent = ({ DOM }: any) => ({
   SKIP_CALL: DOM.click('.skip-call-btn'),
   DECLARE_RIICHI: DOM.click('.riichi-btn'),
   CALL_RON: DOM.click('.call-ron-btn'),
+  HOVER_DISCARD: DOM.mouseenter('.discard-target').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.discard-target')
+    return el ? parseInt(el.getAttribute('data-index'), 10) : null
+  }),
+  UNHOVER_DISCARD: DOM.mouseleave('.discard-target'),
 })
 
 RootComponent.model = {
@@ -688,6 +706,9 @@ RootComponent.model = {
       declinedRonTiles: [],
       winMethod: null,
       ronFromOpponent: null,
+      isIppatsu: false,
+      isDoubleRiichi: false,
+      hoveredDiscardIndex: null,
     }
   },
 
@@ -736,7 +757,9 @@ RootComponent.model = {
       callOptions: [],
       scoreResult: null,
       isRiichi: phase === 'riichi_discard' ? true : state.isRiichi,
+      isIppatsu: phase === 'riichi_discard', // Ippatsu active for one go-around after riichi
       isTempFuriten: false, // Reset temp furiten on new turn
+      hoveredDiscardIndex: null,
     }
   },
 
@@ -803,6 +826,9 @@ RootComponent.model = {
           roundWind: 27,
           isRiichi: state.isRiichi,
           isRinshan: false,
+          isIppatsu: state.isIppatsu || false,
+          isHaitei: wall.length === 0,
+          isDoubleRiichi: state.isDoubleRiichi || false,
         })
         return {
           ...state,
@@ -827,6 +853,7 @@ RootComponent.model = {
           turnCount: state.turnCount + 1,
           phase: 'opponent_turn' as GamePhase,
           isTempFuriten: false,
+          isIppatsu: false, // Survived one go-around, ippatsu window over
         }
       }
 
@@ -1004,6 +1031,9 @@ RootComponent.model = {
         roundWind: 27,
         isRiichi: false,
         isRinshan: true,
+        isIppatsu: false,
+        isHaitei: false,
+        isDoubleRiichi: false,
       })
       return {
         ...state,
@@ -1088,6 +1118,9 @@ RootComponent.model = {
         roundWind: 27,
         isRiichi: false,
         isRinshan: true,
+        isIppatsu: false,
+        isHaitei: false,
+        isDoubleRiichi: false,
       })
       return {
         ...state,
@@ -1170,6 +1203,9 @@ RootComponent.model = {
         roundWind: 27,
         isRiichi: false,
         isRinshan: true,
+        isIppatsu: false,
+        isHaitei: false,
+        isDoubleRiichi: false,
       })
       return {
         ...state,
@@ -1211,6 +1247,7 @@ RootComponent.model = {
     return {
       ...state,
       phase: 'riichi_discard' as GamePhase,
+      isDoubleRiichi: state.turnCount === 1,
     }
   },
 
@@ -1229,6 +1266,9 @@ RootComponent.model = {
       roundWind: 27,
       isRiichi: state.isRiichi,
       isRinshan: false,
+      isIppatsu: state.isIppatsu || false,
+      isHaitei: (state.wall || []).length === 0,
+      isDoubleRiichi: state.isDoubleRiichi || false,
     })
 
     // Determine which opponent discarded (from remainingOpponentIndex - 1)
@@ -1246,6 +1286,17 @@ RootComponent.model = {
       remainingOpponentDiscards: [],
       remainingOpponentIndex: 0,
     }
+  },
+
+  HOVER_DISCARD: (state: AppState, index: number | null) => {
+    if (state.phase !== 'riichi_discard') return ABORT
+    if (index === null) return ABORT
+    return { ...state, hoveredDiscardIndex: index }
+  },
+
+  UNHOVER_DISCARD: (state: AppState) => {
+    if (state.hoveredDiscardIndex === null) return ABORT
+    return { ...state, hoveredDiscardIndex: null }
   },
 
   SKIP_CALL: (state: AppState, _data: any, next: any) => {

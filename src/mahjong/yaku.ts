@@ -2,6 +2,9 @@ import { HandCounts, YakuInfo, DiscardAnalysis, TileId, OpenMeld } from './types
 import { isSimple, isTerminal, isHonor, handToCountArray, tileSuit } from './tiles'
 import { calculateShanten, calculateStandardShanten, calculateAcceptance, calculateShantenWithMelds } from './shanten'
 
+// Maximum distance to display — hides yaku that are too far away to be actionable
+const MAX_DISPLAY_DISTANCE = 5
+
 // Calculate distance to each yaku for a hand
 // openMelds is optional — when present, adjusts han values and disables closed-only yaku
 export function analyzeYaku(counts: HandCounts, openMelds: OpenMeld[] = []): YakuInfo[] {
@@ -11,6 +14,7 @@ export function analyzeYaku(counts: HandCounts, openMelds: OpenMeld[] = []): Yak
     ? calculateShantenWithMelds(counts, openMelds.length)
     : calculateShanten(counts)
 
+  // Regular yaku
   results.push(tanyaoDistance(counts, shanten))
   if (!isOpen) results.push(chiitoiDistance(counts))
   results.push(toitoiDistance(counts, shanten))
@@ -20,8 +24,25 @@ export function analyzeYaku(counts: HandCounts, openMelds: OpenMeld[] = []): Yak
   results.push(...chinitsuDistance(counts, isOpen))
   results.push(ittsuDistance(counts, shanten, isOpen))
   results.push(chantaDistance(counts, shanten, isOpen))
+  results.push(sanshokuDoujunDistance(counts, shanten, isOpen))
+  results.push(sanshokuDoukouDistance(counts, shanten))
+  results.push(honroutouDistance(counts, shanten))
+  results.push(shousangenDistance(counts, shanten))
+  results.push(junchanDistance(counts, shanten, isOpen))
 
-  return results.sort((a, b) => a.distance - b.distance)
+  // Yakuman
+  if (!isOpen) results.push(kokushiDistance(counts))
+  results.push(daisangenDistance(counts, shanten))
+  results.push(shousuushiiDistance(counts, shanten))
+  results.push(daisuushiiDistance(counts, shanten))
+  results.push(tsuuiisouDistance(counts, shanten))
+  results.push(chinroutouDistance(counts, shanten))
+  results.push(ryuuiisouDistance(counts, shanten))
+  if (!isOpen) results.push(chuurenDistance(counts))
+
+  return results
+    .filter(y => y.distance <= MAX_DISPLAY_DISTANCE)
+    .sort((a, b) => a.distance - b.distance)
 }
 
 // Tanyao: all simples (no terminals or honors)
@@ -205,14 +226,243 @@ function chantaDistance(counts: HandCounts, shanten: number, isOpen: boolean = f
   }
 }
 
-// Analyze all possible discards for a 13-tile hand
+// Sanshoku Doujun: same sequence (e.g. 1-2-3) in all 3 suits
+function sanshokuDoujunDistance(counts: HandCounts, shanten: number, isOpen: boolean = false): YakuInfo {
+  let bestDist = 13
+  for (let rank = 0; rank <= 6; rank++) {
+    let missing = 0
+    for (let suit = 0; suit < 3; suit++) {
+      const base = suit * 9
+      for (let offset = 0; offset < 3; offset++) {
+        if (counts[base + rank + offset] === 0) missing++
+      }
+    }
+    bestDist = Math.min(bestDist, missing)
+  }
+  return {
+    name: 'Mixed Triple Sequence',
+    japanese: 'Sanshoku Doujun',
+    distance: Math.max(shanten, bestDist),
+    han: isOpen ? 1 : 2,
+  }
+}
+
+// Sanshoku Doukou: same rank triplet in all 3 suits
+function sanshokuDoukouDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let bestDist = 13
+  for (let rank = 0; rank < 9; rank++) {
+    let missing = 0
+    for (let suit = 0; suit < 3; suit++) {
+      missing += Math.max(0, 3 - counts[suit * 9 + rank])
+    }
+    bestDist = Math.min(bestDist, missing)
+  }
+  return {
+    name: 'Triple Triplets',
+    japanese: 'Sanshoku Doukou',
+    distance: Math.max(shanten, bestDist),
+    han: 2,
+  }
+}
+
+// Honroutou: all tiles are terminals or honors
+function honroutouDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let badTiles = 0
+  for (let i = 0; i < 34; i++) {
+    if (!isTerminal(i) && !isHonor(i)) badTiles += counts[i]
+  }
+  return {
+    name: 'All Terminals & Honors',
+    japanese: 'Honroutou',
+    distance: Math.max(shanten, badTiles),
+    han: 2,
+  }
+}
+
+// Shousangen: 2 dragon triplets + dragon pair
+function shousangenDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let bestDist = 13
+  // Try each dragon as the pair, other two as triplets
+  for (let pairDragon = 31; pairDragon <= 33; pairDragon++) {
+    let missing = Math.max(0, 2 - counts[pairDragon])
+    for (let d = 31; d <= 33; d++) {
+      if (d === pairDragon) continue
+      missing += Math.max(0, 3 - counts[d])
+    }
+    bestDist = Math.min(bestDist, missing)
+  }
+  return {
+    name: 'Little Three Dragons',
+    japanese: 'Shousangen',
+    distance: Math.max(shanten, bestDist),
+    han: 2,
+  }
+}
+
+// Junchan: every group has a terminal (no honors), must have sequences
+function junchanDistance(counts: HandCounts, shanten: number, isOpen: boolean = false): YakuInfo {
+  let badTiles = 0
+  // All honors must go
+  for (let i = 27; i < 34; i++) badTiles += counts[i]
+  // Middle tiles (4,5,6 in each suit) can't be in terminal sequences
+  for (let suit = 0; suit < 3; suit++) {
+    const base = suit * 9
+    for (let i = 3; i <= 5; i++) {
+      badTiles += counts[base + i]
+    }
+  }
+  return {
+    name: 'Terminals in All Groups',
+    japanese: 'Junchan',
+    distance: Math.max(shanten, badTiles),
+    han: isOpen ? 2 : 3,
+  }
+}
+
+// Kokushi Musou: one of each terminal/honor + one pair among them
+function kokushiDistance(counts: HandCounts): YakuInfo {
+  const required = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33]
+  let uniqueCount = 0
+  let hasPair = false
+  for (const t of required) {
+    if (counts[t] > 0) uniqueCount++
+    if (counts[t] >= 2) hasPair = true
+  }
+  // Kokushi shanten = 13 - unique - (hasPair ? 1 : 0)
+  return {
+    name: 'Thirteen Orphans',
+    japanese: 'Kokushi Musou',
+    distance: 13 - uniqueCount - (hasPair ? 1 : 0),
+    han: 13,
+  }
+}
+
+// Daisangen: 3 dragon triplets
+function daisangenDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let missing = 0
+  for (let d = 31; d <= 33; d++) {
+    missing += Math.max(0, 3 - counts[d])
+  }
+  return {
+    name: 'Big Three Dragons',
+    japanese: 'Daisangen',
+    distance: Math.max(shanten, missing),
+    han: 13,
+  }
+}
+
+// Shousuushii: 3 wind triplets + wind pair
+function shousuushiiDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let bestDist = 13
+  for (let pairWind = 27; pairWind <= 30; pairWind++) {
+    let missing = Math.max(0, 2 - counts[pairWind])
+    for (let w = 27; w <= 30; w++) {
+      if (w === pairWind) continue
+      missing += Math.max(0, 3 - counts[w])
+    }
+    bestDist = Math.min(bestDist, missing)
+  }
+  return {
+    name: 'Little Four Winds',
+    japanese: 'Shousuushii',
+    distance: Math.max(shanten, bestDist),
+    han: 13,
+  }
+}
+
+// Daisuushii: 4 wind triplets
+function daisuushiiDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let missing = 0
+  for (let w = 27; w <= 30; w++) {
+    missing += Math.max(0, 3 - counts[w])
+  }
+  return {
+    name: 'Big Four Winds',
+    japanese: 'Daisuushii',
+    distance: Math.max(shanten, missing),
+    han: 13,
+  }
+}
+
+// Tsuuiisou: all honors
+function tsuuiisouDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let badTiles = 0
+  for (let i = 0; i < 27; i++) badTiles += counts[i]
+  return {
+    name: 'All Honors',
+    japanese: 'Tsuuiisou',
+    distance: Math.max(shanten, badTiles),
+    han: 13,
+  }
+}
+
+// Chinroutou: all terminals (1s and 9s only)
+function chinroutouDistance(counts: HandCounts, shanten: number): YakuInfo {
+  let badTiles = 0
+  for (let i = 0; i < 34; i++) {
+    if (!isTerminal(i)) badTiles += counts[i]
+  }
+  return {
+    name: 'All Terminals',
+    japanese: 'Chinroutou',
+    distance: Math.max(shanten, badTiles),
+    han: 13,
+  }
+}
+
+// Ryuuiisou: all green tiles (2s,3s,4s,6s,8s,Hatsu)
+function ryuuiisouDistance(counts: HandCounts, shanten: number): YakuInfo {
+  const greenTiles = new Set([19, 20, 21, 23, 25, 32])
+  let badTiles = 0
+  for (let i = 0; i < 34; i++) {
+    if (!greenTiles.has(i)) badTiles += counts[i]
+  }
+  return {
+    name: 'All Green',
+    japanese: 'Ryuuiisou',
+    distance: Math.max(shanten, badTiles),
+    han: 13,
+  }
+}
+
+// Chuuren Poutou: nine gates (1112345678999 + any, one suit, closed)
+function chuurenDistance(counts: HandCounts): YakuInfo {
+  const pattern = [3, 1, 1, 1, 1, 1, 1, 1, 3] // 1112345678999
+  let bestDist = 13
+  for (let suit = 0; suit < 3; suit++) {
+    const base = suit * 9
+    let missing = 0
+    // Count tiles needed to complete the pattern
+    for (let i = 0; i < 9; i++) {
+      missing += Math.max(0, pattern[i] - counts[base + i])
+    }
+    // Count tiles in other suits/honors that need to be swapped out
+    let badTiles = 0
+    for (let i = 0; i < 34; i++) {
+      if (i >= base && i < base + 9) continue
+      badTiles += counts[i]
+    }
+    bestDist = Math.min(bestDist, Math.max(missing, badTiles))
+  }
+  return {
+    name: 'Nine Gates',
+    japanese: 'Chuuren Poutou',
+    distance: bestDist,
+    han: 13,
+  }
+}
+
+// Analyze all possible discards for a hand
 export function analyzeDiscards(
   hand: TileId[],
   counts: HandCounts,
   wall: TileId[],
+  openMelds: OpenMeld[] = [],
 ): DiscardAnalysis[] {
-  const currentShanten = calculateShanten([...counts])
-  const currentYaku = analyzeYaku([...counts])
+  const numMelds = openMelds.length
+  const shantenFn = (c: HandCounts) => numMelds > 0 ? calculateShantenWithMelds(c, numMelds) : calculateShanten(c)
+  const currentShanten = shantenFn([...counts])
+  const currentYaku = analyzeYaku([...counts], openMelds)
   const results: DiscardAnalysis[] = []
   const seen = new Set<string>()
 
@@ -226,7 +476,7 @@ export function analyzeDiscards(
     const newCounts = [...counts]
     newCounts[tile]--
 
-    // Calculate shanten of 12-tile hand (effectively, how good is this discard?)
+    // Calculate shanten of reduced hand (effectively, how good is this discard?)
     // Use acceptance as a quality metric
     const acceptance = calculateAcceptance(newCounts)
 
@@ -235,15 +485,15 @@ export function analyzeDiscards(
     for (let draw = 0; draw < 34; draw++) {
       if (newCounts[draw] >= 4) continue
       newCounts[draw]++
-      bestShantenAfterDraw = Math.min(bestShantenAfterDraw, calculateShanten([...newCounts]))
+      bestShantenAfterDraw = Math.min(bestShantenAfterDraw, shantenFn([...newCounts]))
       newCounts[draw]--
     }
 
     // Yaku distance changes
-    newCounts[tile]-- // temporarily remove for 12-tile yaku analysis
-    // We need 13 tiles for proper yaku analysis, so add back and just compare
+    newCounts[tile]-- // temporarily remove for reduced yaku analysis
+    // We need full tiles for proper yaku analysis, so add back and just compare
     newCounts[tile]++
-    const afterYaku = analyzeYaku([...newCounts])
+    const afterYaku = analyzeYaku([...newCounts], openMelds)
     newCounts[tile]-- // restore
     newCounts[tile]++ // final restore
 
