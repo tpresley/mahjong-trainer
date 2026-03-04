@@ -35,6 +35,7 @@ export type OpenMeld = {
   tiles: TileId[]            // 3 tiles for pon/chi, 4 tiles for kan types
   calledTile: TileId | null  // null for ankan (no called tile)
   fromHand: TileId[]         // tiles taken from user's hand
+  calledFrom?: number        // 0=South(shimocha), 1=West(toimen), 2=North(kamicha); undefined for ankan
 }
 
 export type CallOption = {

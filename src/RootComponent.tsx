@@ -897,7 +897,11 @@ RootComponent.model = {
     // Add pon/chi/kan (skip if riichi — can't call while in riichi)
     if (!state.isRiichi) {
       const otherCalls = detectCallOptions(state.hand, tile)
-      calls.push(...otherCalls)
+      // Chi only allowed from kamicha (index 2 = North)
+      const filteredCalls = index === 2
+        ? otherCalls
+        : otherCalls.filter((c: CallOption) => c.type !== 'chi')
+      calls.push(...filteredCalls)
     }
 
     if (calls.length > 0) {
@@ -935,6 +939,7 @@ RootComponent.model = {
       tiles: sortHand([...handTiles, calledTile]),
       calledTile,
       fromHand: handTiles,
+      calledFrom: (state.remainingOpponentIndex || 1) - 1,
     }
 
     return {
@@ -966,6 +971,7 @@ RootComponent.model = {
       tiles: sortHand([...handTiles, calledTile]),
       calledTile,
       fromHand: handTiles,
+      calledFrom: (state.remainingOpponentIndex || 1) - 1,
     }
 
     return {
@@ -995,6 +1001,7 @@ RootComponent.model = {
       tiles: sortHand([...handTiles, calledTile]),
       calledTile,
       fromHand: handTiles,
+      calledFrom: (state.remainingOpponentIndex || 1) - 1,
     }
 
     const melds = [...(state.openMelds || []), meld]
@@ -1173,6 +1180,7 @@ RootComponent.model = {
       tiles: [...targetMeld.tiles, ponTile],
       calledTile: targetMeld.calledTile,
       fromHand: [...targetMeld.fromHand, ponTile],
+      calledFrom: targetMeld.calledFrom,
     }
 
     // Draw replacement
