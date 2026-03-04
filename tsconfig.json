@@ -3,12 +3,13 @@
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "preserve",
-    "jsxFactory": "jsx",
-    "jsxFragmentFactory": "Fragment",
+    "jsx": "react-jsx",
+    "jsxImportSource": "sygnal",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }
