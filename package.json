@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "sygnal": "^4.1.0"
+    "sygnal": "^4.1.0",
+    "terser": "^5.46.0"
   },
   "devDependencies": {
-    "vite": "^6.4.1",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vite": "^6.4.1"
   }
 }
