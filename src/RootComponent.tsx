@@ -1,15 +1,16 @@
 import { ABORT } from 'sygnal'
 import { TileId, YakuInfo, DiscardAnalysis, OpenMeld, CallOption, SelfKanOption, GamePhase, ScoreResult } from './mahjong/types'
-import { dealHand, tileToString, tileColor, sortHand, handToCountArray, tileDisplayChar, removeFromHand } from './mahjong/tiles'
+import { dealHand, sortHand, handToCountArray, removeFromHand } from './mahjong/tiles'
 import { calculateShanten, calculateShantenWithMelds } from './mahjong/shanten'
 import { analyzeYaku, analyzeDiscards } from './mahjong/yaku'
 import { detectCallOptions, detectSelfKanOptions } from './mahjong/calls'
 import { calculateScore } from './mahjong/scoring'
-import YakuItem from './components/YakuItem'
-import DiscardResult from './components/DiscardResult'
-import ScoreYakuItem from './components/ScoreYakuItem'
-import MeldGroup from './components/MeldGroup'
-// DiscardTile not used as collection (ordering issues) — rendered inline via .map()
+import { ScoreDisplay } from './components/views/ScoreDisplay'
+import { OpponentDiscards } from './components/views/OpponentDiscards'
+import { HandSection } from './components/views/HandSection'
+import { CallDecisionBanner } from './components/views/CallDecisionBanner'
+import { UserDiscards } from './components/views/UserDiscards'
+import { AnalysisGrid } from './components/views/AnalysisGrid'
 
 type AppState = {
   hand: TileId[]
@@ -131,317 +132,22 @@ function RootComponent({ state }: { state: AppState & {
         <p className="subtitle">Reach Mahjong Hand Formation</p>
       </header>
 
-      {/* Score display when hand is complete */}
-      {phase === 'hand_complete' && scoreResult && (
-        <section className="score-section">
-          <h2>{winMethod === 'ron' ? 'Ron!' : 'Tsumo!'} Hand Complete!</h2>
-          <div className="score-yaku-list">
-            <collection of={ScoreYakuItem} from="scoreYaku" />
-          </div>
-          <div className="score-summary">
-            <div className="score-han-fu">{scoreResult.totalHan} han / {scoreResult.fu} fu</div>
-            {scoreResult.limitName && (
-              <div className="score-limit">{scoreResult.limitName}</div>
-            )}
-            <div className="score-points">
-              {scoreResult.totalPoints} points
-              <span className="score-payment-detail">
-                {winMethod === 'ron'
-                  ? ` (from ${opponentNames[ronFromOpponent || 0]})`
-                  : ` (each pays ${scoreResult.dealerTsumoEach})`}
-              </span>
-            </div>
-          </div>
-          <button className="new-hand-btn">New Hand</button>
-        </section>
-      )}
-      {phase === 'hand_complete' && !scoreResult && (
-        <section className="score-section" style={{ borderColor: '#e74c3c' }}>
-          <h2 style={{ color: '#e74c3c' }}>No Yaku!</h2>
-          <p style={{ color: '#aaa' }}>Your hand has no valid yaku. No points scored.</p>
-          <button className="new-hand-btn">New Hand</button>
-        </section>
-      )}
+      {ScoreDisplay({ phase, scoreResult, winMethod, ronFromOpponent, opponentNames })}
 
-      {/* Opponent discards — always visible */}
-      <section className="opponent-discards-section">
-        <div className="opponent-discards-grid">
-          {[{name: '\u5317 North', idx: 2}, {name: '\u897F West', idx: 1}, {name: '\u5357 South', idx: 0}].map(({name, idx}: {name: string; idx: number}) => (
-            <div className="opponent-pile">
-              <h3>{name}</h3>
-              <div className="discards-row">
-                {(opponentDiscards[idx] || []).map((tile: TileId, tileIdx: number) => {
-                  const pile = opponentDiscards[idx] || []
-                  const isCallTarget = phase === 'call_decision' && pendingDiscard !== null && tile === pendingDiscard && tileIdx === pile.length - 1
-                  return (
-                    <div className={`discard-tile-styled${tile === 33 ? ' chun' : ''}${isCallTarget ? ' call-candidate' : ''}`} style={{ color: tileColor(tile) }}>
-                      <span className="tile-char-discard">{tileDisplayChar(tile)}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {OpponentDiscards({ opponentDiscards, phase, pendingDiscard })}
 
-      <section className="hand-section">
-        <div className="hand-header">
-          <h2>Your Hand</h2>
-          <div className="wind-badge">
-            <span className="wind-icon">{'\u{1F000}'}</span>
-            <span className="wind-text">East · Dealer</span>
-          </div>
-          <div className={`shanten-badge ${shanten <= 0 ? 'tenpai' : ''}`}>
-            <span className="shanten-text">{shantenLabel}</span>
-          </div>
-          {isRiichi && (
-            <div className="riichi-badge">
-              <span className="riichi-badge-text">Riichi!</span>
-            </div>
-          )}
-          {isFuriten && (
-            <div className="furiten-badge">
-              <span className="furiten-badge-text">Furiten</span>
-            </div>
-          )}
-          <span className="turn-info">Turn {state.turnCount} &middot; {wallRemaining} left</span>
-          <button className="new-hand-btn">New Hand</button>
-        </div>
+      {HandSection({
+        hand: handToShow, drawnTile, shanten, shantenLabel, canDiscard, phase,
+        isRiichi, canDeclareRiichi, isFuriten, selfKanOptions, openMelds,
+        turnCount: state.turnCount, wallRemaining, discardLookup, riichiValidSet,
+        waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod,
+      })}
 
-        {/* Riichi declaration banner */}
-        {canDeclareRiichi && !isRiichi && (
-          <div className="riichi-banner">
-            <span className="riichi-banner-text">You are tenpai with a closed hand!</span>
-            <button className="riichi-btn">Declare Riichi</button>
-          </div>
-        )}
+      {CallDecisionBanner({ phase, pendingDiscard, callOptions })}
 
-        {/* Self-kan options during user's turn */}
-        {phase === 'user_discard' && selfKanOptions.length > 0 && !isRiichi && (
-          <div className="self-kan-banner">
-            <span className="kan-label">Kan available:</span>
-            <div className="kan-buttons">
-              {selfKanOptions.map((opt: SelfKanOption) => (
-                opt.type === 'ankan' ? (
-                  <button className="ankan-btn kan-btn" attrs={{ 'data-tile': String(opt.tile) }}>
-                    Ankan ({tileToString(opt.tile)})
-                  </button>
-                ) : (
-                  <button className="shouminkan-btn kan-btn" attrs={{ 'data-meld-index': String(opt.meldIndex) }}>
-                    Kan ({tileToString(opt.tile)})
-                  </button>
-                )
-              ))}
-            </div>
-          </div>
-        )}
+      {UserDiscards({ discards })}
 
-        <div className="hand-tiles">
-          {handToShow.map((tile: TileId, idx: number) => {
-            const da = discardLookup.get(tile)
-            const insertBefore = tsumoInsertIdx >= 0 && tsumoInsertIdx === idx
-            const insertAfter = tsumoInsertIdx === -1 && idx === handToShow.length - 1
-            const isRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(idx)
-            return (
-              <div
-                className={`tile${canDiscard && !isRiichiInvalid ? ' discard-target' : ''}${tile === 33 ? ' chun' : ''}${insertBefore ? ' insert-before' : ''}${insertAfter ? ' insert-after' : ''}${isRiichiInvalid ? ' riichi-invalid' : ''}`}
-                attrs={{ 'data-index': String(idx) }}
-                style={{ color: tileColor(tile) }}
-              >
-                <span className="tile-char">{tileDisplayChar(tile)}</span>
-                {da && canDiscard && (
-                  <div className="tile-tooltip">
-                    <div className="tooltip-header">
-                      Discard <strong>{tileToString(tile)}</strong> &rarr; {da.shantenAfter}-shanten, {da.acceptance} accepts
-                    </div>
-                    {da.yakuChanges.length > 0 ? (
-                      <div className="tooltip-changes">
-                        {da.yakuChanges.map((c: { name: string; change: number }) => (
-                          <div className={`tooltip-change ${c.change > 0 ? 'improve' : 'worsen'}`}>
-                            {c.change > 0 ? '+' : ''}{c.change} {c.name}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="tooltip-empty">No yaku impact</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {showDrawnTile && (() => {
-            const da = discardLookup.get(drawnTile!)
-            const drawnIsRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(hand.length)
-            const winClass = phase === 'hand_complete' ? (winMethod === 'ron' ? ' ron-win' : ' tsumo-win') : ''
-            return (
-              <>
-                <div className="tile-gap"></div>
-                <div
-                  className={`tile drawn${canDiscard && !drawnIsRiichiInvalid ? ' discard-target' : ''}${winClass}${drawnTile === 33 ? ' chun' : ''}${drawnIsRiichiInvalid ? ' riichi-invalid' : ''}`}
-                  attrs={{ 'data-index': String(hand.length) }}
-                  style={{ color: tileColor(drawnTile!) }}
-                >
-                  <span className="tile-char">{tileDisplayChar(drawnTile!)}</span>
-                  {da && canDiscard && (
-                    <div className="tile-tooltip">
-                      <div className="tooltip-header">
-                        Discard <strong>{tileToString(drawnTile!)}</strong> &rarr; {da.shantenAfter}-shanten, {da.acceptance} accepts
-                      </div>
-                      {da.yakuChanges.length > 0 ? (
-                        <div className="tooltip-changes">
-                          {da.yakuChanges.map((c: { name: string; change: number }) => (
-                            <div className={`tooltip-change ${c.change > 0 ? 'improve' : 'worsen'}`}>
-                              {c.change > 0 ? '+' : ''}{c.change} {c.name}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="tooltip-empty">No yaku impact</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            )
-          })()}
-        </div>
-
-        {/* Open melds */}
-        {openMelds.length > 0 && (
-          <div className="open-melds">
-            <collection of={MeldGroup} from="openMelds" />
-          </div>
-        )}
-
-        {/* Waiting tiles when tenpai */}
-        {shanten === 0 && waitingTiles.length > 0 && phase !== 'hand_complete' && (
-          <div className="waiting-section">
-            <span className="waiting-label">Waiting for:</span>
-            <div className="waiting-tiles">
-              {waitingTiles.map((w: WaitTile) => (
-                <div className="waiting-tile-item">
-                  <div className={`tile-analysis${w.tile === 33 ? ' chun' : ''}`} style={{ color: tileColor(w.tile) }}>
-                    <span className="tile-char-analysis">{tileDisplayChar(w.tile)}</span>
-                  </div>
-                  <div className="waiting-tile-detail">
-                    <span className="waiting-tile-name">{tileToString(w.tile)}</span>
-                    <span className="waiting-tile-count">{w.remaining} left</span>
-                  </div>
-                  <div className="waiting-tooltip">
-                    {w.score && w.score.yaku && w.score.yaku.length > 0 ? (
-                      <>
-                        {w.score.yaku.map((y: { japanese: string; name: string; han: number }) => (
-                          <div className="waiting-yaku-row">
-                            <span className="waiting-yaku-name">{y.japanese}</span>
-                            <span className="waiting-yaku-han">{y.han} han</span>
-                          </div>
-                        ))}
-                        <div className="waiting-score-total">
-                          {w.score.totalHan} han / {w.score.fu} fu = {w.score.totalPoints} pts
-                        </div>
-                      </>
-                    ) : (
-                      <div className="waiting-no-yaku">No yaku</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Phase-dependent hints */}
-        {phase === 'user_discard' && drawnTile !== null && drawnTile !== undefined && (
-          <p className="discard-hint">Click a tile to discard it</p>
-        )}
-        {phase === 'post_call_discard' && (
-          <p className="discard-hint">You called {openMelds.length > 0 ? (openMelds[openMelds.length - 1]?.type === 'chi' ? 'chi' : 'pon') : ''} &mdash; discard a tile</p>
-        )}
-        {phase === 'opponent_turn' && (
-          <p className="discard-hint">Opponents are discarding...</p>
-        )}
-        {phase === 'call_decision' && (
-          <p className="discard-hint">An opponent discarded a tile you can call</p>
-        )}
-        {phase === 'riichi_discard' && (
-          <p className="discard-hint">Riichi declared! Discard a tile that keeps you tenpai</p>
-        )}
-        {phase === 'hand_complete' && (
-          <p className="discard-hint">Your hand is complete!</p>
-        )}
-        {phase === 'wall_exhausted' && (
-          <p className="discard-hint">Wall exhausted &mdash; deal a new hand</p>
-        )}
-      </section>
-
-      {/* Call decision banner */}
-      {phase === 'call_decision' && pendingDiscard !== null && (
-        <section className="call-banner">
-          <div className="call-banner-info">
-            <div className={`tile-small${pendingDiscard === 33 ? ' chun' : ''}`} style={{ color: tileColor(pendingDiscard) }}>
-              <span className="tile-char-meld">{tileDisplayChar(pendingDiscard)}</span>
-            </div>
-            <span className="call-label">Opponent discarded <strong>{tileToString(pendingDiscard)}</strong></span>
-          </div>
-          <div className="call-buttons">
-            {callOptions.some((c: CallOption) => c.type === 'ron') && (
-              <button className="call-ron-btn call-btn">Ron</button>
-            )}
-            {callOptions.some((c: CallOption) => c.type === 'daiminkan') && (
-              <button className="call-daiminkan-btn call-btn">Kan</button>
-            )}
-            {callOptions.some((c: CallOption) => c.type === 'pon') && (
-              <button className="call-pon-btn call-btn">Pon</button>
-            )}
-            {callOptions.filter((c: CallOption) => c.type === 'chi').map((chiOpt: CallOption) =>
-              chiOpt.handTiles.map((combo: TileId[], idx: number) => (
-                <button className="call-chi-btn call-btn" attrs={{ 'data-combo': String(idx) }}>
-                  Chi ({combo.map((t: TileId) => tileToString(t)).join(' + ')})
-                </button>
-              ))
-            )}
-            <button className="skip-call-btn call-btn call-btn-skip">Skip</button>
-          </div>
-        </section>
-      )}
-
-      {/* User discards — always visible */}
-      <section className="user-discards-section">
-        <h2>Your Discards</h2>
-        <div className="discards-row">
-          {discards.map((tile: TileId) => (
-            <div className={`discard-tile-styled${tile === 33 ? ' chun' : ''}`} style={{ color: tileColor(tile) }}>
-              <span className="tile-char-discard">{tileDisplayChar(tile)}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="analysis-grid">
-        <section className="yaku-section">
-          <h2>Yaku Distances</h2>
-          <p className="section-hint">
-            {openMelds.length > 0 ? 'Open hand — some yaku unavailable' : 'Analysis of your hand'}
-          </p>
-          <div className="yaku-list">
-            <collection of={YakuItem} from="yakuDistances" />
-          </div>
-        </section>
-
-        <section className="discard-section">
-          <h2>Discard Analysis</h2>
-          <p className="section-hint">
-            {canDiscard && (drawnTile !== null || phase === 'post_call_discard')
-              ? 'Shanten & acceptance after discarding each tile'
-              : 'Discard a tile to continue'}
-          </p>
-          <div className="discard-list">
-            <collection of={DiscardResult} from="discardResults" />
-          </div>
-        </section>
-      </div>
+      {AnalysisGrid({ openMelds, canDiscard, drawnTile, phase })}
     </div>
   )
 }
