@@ -1,6 +1,6 @@
 import { ABORT } from 'sygnal'
 import { TileId, YakuInfo, DiscardAnalysis, OpenMeld, CallOption, SelfKanOption, GamePhase, ScoreResult } from './mahjong/types'
-import { dealHand, sortHand, handToCountArray, removeFromHand } from './mahjong/tiles'
+import { dealHand, sortHand, handToCountArray, removeFromHand, tileToString } from './mahjong/tiles'
 import { calculateShanten, calculateShantenWithMelds } from './mahjong/shanten'
 import { analyzeYaku, analyzeDiscards } from './mahjong/yaku'
 import { detectCallOptions, detectSelfKanOptions } from './mahjong/calls'
@@ -297,7 +297,6 @@ RootComponent.calculated = {
         for (let t = 0; t < 34; t++) {
           if (dc[t] >= 4) continue
           const remaining = 4 - visible[t]
-          if (remaining <= 0) continue
           dc[t]++
           const sh2 = numMelds > 0 ? calculateShantenWithMelds(dc, numMelds) : calculateShanten(dc)
           dc[t]--
@@ -320,7 +319,6 @@ RootComponent.calculated = {
       for (let t = 0; t < 34; t++) {
         if (handCounts[t] >= 4) continue
         const remaining = 4 - visible[t]
-        if (remaining <= 0) continue
         const dc = [...handCounts]
         dc[t]++
         const sh = numMelds > 0 ? calculateShantenWithMelds(dc, numMelds) : calculateShanten(dc)
@@ -390,14 +388,23 @@ RootComponent.intent = ({ DOM }: any) => ({
 
 RootComponent.model = {
   NEW_HAND: (state: AppState) => {
-    const { hand, drawnTile, wall } = dealHand()
+    const debug = (window as any).__debugHand
+    let hand, drawnTile, wall
+    let oppDiscards: TileId[][] = [[], [], []]
+    if (debug) {
+      ({ hand, drawnTile, wall } = debug)
+      if (debug.opponentDiscards) oppDiscards = debug.opponentDiscards.map((p: number[]) => [...p])
+      ;(window as any).__debugHand = undefined
+    } else {
+      ({ hand, drawnTile, wall } = dealHand())
+    }
     return {
       ...state,
       hand,
       drawnTile,
       wall,
       discards: [],
-      opponentDiscards: [[], [], []],
+      opponentDiscards: oppDiscards,
       turnCount: 1,
       openMelds: [],
       phase: 'user_discard' as GamePhase,
@@ -1042,6 +1049,46 @@ RootComponent.model = {
     }
   },
 
+}
+
+// Debug: set a specific hand from the browser console
+// Tile IDs: 0-8 man, 9-17 pin, 18-26 sou, 27-30 winds (ESWN), 31-33 dragons (haku/hatsu/chun)
+// Usage: setHand([0,1,2, 9,10,11, 18,19,20, 27,27,27, 28])            — draws 14th from wall
+//        setHand([0,1,2, 9,10,11, 18,19,20, 27,27,27, 28], 28)        — specific drawn tile
+//        setHand([...13], 28, [[27,27,28], [], []])                     — with opponent discards
+;(window as any).setHand = (tiles: number[], drawn?: number, oppDiscards?: number[][]) => {
+  if (tiles.length !== 13) {
+    console.error('setHand expects exactly 13 tile IDs (0-33). Got', tiles.length)
+    return
+  }
+  const counts = new Array(34).fill(0)
+  const allTiles = [...tiles]
+  if (drawn !== undefined) allTiles.push(drawn)
+  if (oppDiscards) for (const pile of oppDiscards) allTiles.push(...pile)
+  for (const t of allTiles) {
+    if (t < 0 || t > 33) { console.error(`Invalid tile ID: ${t}`); return }
+    counts[t]++
+    if (counts[t] > 4) { console.error(`Too many copies of tile ${t} (${tileToString(t)})`); return }
+  }
+  const wall: TileId[] = []
+  for (let i = 0; i < 34; i++) {
+    for (let j = counts[i]; j < 4; j++) wall.push(i)
+  }
+  for (let i = wall.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[wall[i], wall[j]] = [wall[j], wall[i]]
+  }
+  const drawnTile = drawn !== undefined ? drawn : wall.shift()!
+  ;(window as any).__debugHand = {
+    hand: sortHand([...tiles] as TileId[]),
+    drawnTile,
+    wall,
+    opponentDiscards: oppDiscards || undefined,
+  }
+  const btn = document.querySelector('.new-hand-btn') as HTMLElement
+  btn?.click()
+  const handStr = sortHand([...tiles] as TileId[]).map(t => tileToString(t)).join(' ')
+  console.log(`Hand set: ${handStr} + ${tileToString(drawnTile)}`)
 }
 
 export default RootComponent

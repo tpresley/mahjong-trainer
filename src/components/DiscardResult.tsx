@@ -1,4 +1,5 @@
-import { tileToString, tileColor, tileDisplayChar } from '../mahjong/tiles'
+import { tileToString } from '../mahjong/tiles'
+import { tileFaceSVG } from '../mahjong/tileSVG'
 
 function DiscardResult({ state }: { state: {
   tile: number
@@ -10,8 +11,8 @@ function DiscardResult({ state }: { state: {
   return (
     <div className={`discard-item ${state.isDrawn ? 'is-drawn' : ''}`}>
       <div className="discard-tile">
-        <div className={`tile-analysis${state.tile === 33 ? ' chun' : ''}`} style={{ color: tileColor(state.tile) }}>
-          <span className="tile-char-analysis">{tileDisplayChar(state.tile)}</span>
+        <div className="tile-analysis">
+          {tileFaceSVG(state.tile)}
         </div>
         <span className="analysis-tile-name">{tileToString(state.tile)}</span>
         {state.isDrawn && <span className="drawn-tag">drawn</span>}

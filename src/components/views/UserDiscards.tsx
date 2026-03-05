@@ -1,5 +1,5 @@
 import { TileId } from '../../mahjong/types'
-import { tileColor, tileDisplayChar } from '../../mahjong/tiles'
+import { tileFaceSVG } from '../../mahjong/tileSVG'
 
 type UserDiscardsProps = {
   discards: TileId[]
@@ -11,8 +11,8 @@ export function UserDiscards({ discards }: UserDiscardsProps) {
       <h2>Your Discards</h2>
       <div className="discards-row">
         {discards.map((tile: TileId) => (
-          <div className={`discard-tile-styled${tile === 33 ? ' chun' : ''}`} style={{ color: tileColor(tile) }}>
-            <span className="tile-char-discard">{tileDisplayChar(tile)}</span>
+          <div className="discard-tile-styled">
+            {tileFaceSVG(tile)}
           </div>
         ))}
       </div>

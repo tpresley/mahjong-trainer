@@ -1,5 +1,6 @@
 import { TileId, GamePhase, CallOption } from '../../mahjong/types'
-import { tileToString, tileColor, tileDisplayChar } from '../../mahjong/tiles'
+import { tileToString } from '../../mahjong/tiles'
+import { tileFaceSVG } from '../../mahjong/tileSVG'
 
 type CallDecisionBannerProps = {
   phase: GamePhase
@@ -13,8 +14,8 @@ export function CallDecisionBanner({ phase, pendingDiscard, callOptions }: CallD
   return (
     <section className="call-banner">
       <div className="call-banner-info">
-        <div className={`tile-small${pendingDiscard === 33 ? ' chun' : ''}`} style={{ color: tileColor(pendingDiscard) }}>
-          <span className="tile-char-meld">{tileDisplayChar(pendingDiscard)}</span>
+        <div className="tile-small">
+          {tileFaceSVG(pendingDiscard)}
         </div>
         <span className="call-label">Opponent discarded <strong>{tileToString(pendingDiscard)}</strong></span>
       </div>

@@ -1,5 +1,5 @@
 import { TileId, GamePhase } from '../../mahjong/types'
-import { tileColor, tileDisplayChar } from '../../mahjong/tiles'
+import { tileFaceSVG } from '../../mahjong/tileSVG'
 
 type OpponentDiscardsProps = {
   opponentDiscards: TileId[][]
@@ -19,8 +19,8 @@ export function OpponentDiscards({ opponentDiscards, phase, pendingDiscard }: Op
                 const pile = opponentDiscards[idx] || []
                 const isCallTarget = phase === 'call_decision' && pendingDiscard !== null && tile === pendingDiscard && tileIdx === pile.length - 1
                 return (
-                  <div className={`discard-tile-styled${tile === 33 ? ' chun' : ''}${isCallTarget ? ' call-candidate' : ''}`} style={{ color: tileColor(tile) }}>
-                    <span className="tile-char-discard">{tileDisplayChar(tile)}</span>
+                  <div className={`discard-tile-styled${isCallTarget ? ' call-candidate' : ''}`}>
+                    {tileFaceSVG(tile)}
                   </div>
                 )
               })}

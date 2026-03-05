@@ -122,7 +122,7 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.8),
     inset -1px -1px 0 rgba(0,0,0,0.1);
   border: 1px solid #c8c4b8;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .tile.discard-target:hover {
@@ -145,18 +145,6 @@ body {
     0 1px 2px rgba(0,0,0,0.4),
     inset 0 1px 0 rgba(255,255,255,0.6),
     inset -1px -1px 0 rgba(0,0,0,0.15);
-}
-
-.tile-char {
-  font-size: 3.6rem;
-  line-height: 1;
-  display: block;
-  transform: translateY(-9px);
-}
-
-/* Chun (Red Dragon) uses a different glyph style in the font */
-.tile.chun .tile-char {
-  transform: translateY(2px);
 }
 
 /* Hover tooltip showing yaku changes */
@@ -312,6 +300,10 @@ body {
   cursor: default;
 }
 
+.waiting-tile-unavailable {
+  opacity: 0.4;
+}
+
 .waiting-tile-detail {
   display: flex;
   flex-direction: column;
@@ -442,19 +434,9 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.6),
     inset -1px -1px 0 rgba(0,0,0,0.08);
   border: 1px solid #c8c4b8;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.tile-char-discard {
-  font-size: 2.4rem;
-  line-height: 1;
-  display: block;
-  transform: translateY(-6px);
-}
-
-.discard-tile-styled.chun .tile-char-discard {
-  transform: translateY(1px);
-}
 
 /* Call candidate highlight on opponent tiles — pop-out slot effect */
 .discard-tile-styled.call-candidate {
@@ -612,28 +594,15 @@ body {
     inset 0 1px 0 rgba(255,255,255,0.6),
     inset -1px -1px 0 rgba(0,0,0,0.08);
   border: 1px solid #c8c4b8;
-  overflow: visible;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
-.tile-char-analysis {
-  font-size: 2rem;
-  line-height: 1;
-  display: block;
-  transform: translateY(-5px);
-}
-
-.tile-analysis.chun .tile-char-analysis {
-  transform: translateY(1px);
-}
 
 .analysis-tile-name {
   font-size: 0.85rem;
 }
 
-.tile-char-sm {
-  font-size: 1.2rem;
-}
 
 .drawn-tag {
   font-size: 0.6rem;
@@ -719,7 +688,7 @@ body {
     1px 1px 2px rgba(0,0,0,0.3),
     inset 0 1px 0 rgba(255,255,255,0.6);
   border: 1px solid #c8c4b8;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .tile-small.called-tile {
@@ -729,20 +698,6 @@ body {
   z-index: 1;
 }
 
-.tile-small.called-tile .tile-char-meld {
-  transform: translateY(-1px);
-}
-
-.tile-char-meld {
-  font-size: 2.8rem;
-  line-height: 1;
-  display: block;
-  transform: translateY(-7px);
-}
-
-.tile-small.chun .tile-char-meld {
-  transform: translateY(1px);
-}
 
 /* Call Decision Banner */
 .call-banner {
@@ -906,10 +861,6 @@ body {
   border-color: #3a4a6e;
 }
 
-.tile-small.face-down .tile-char-meld {
-  color: #3a4a6e;
-  font-size: 2rem;
-}
 
 /* Score Display */
 .score-section {

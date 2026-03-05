@@ -1,5 +1,6 @@
 import { TileId, DiscardAnalysis, OpenMeld, SelfKanOption, GamePhase, ScoreResult } from '../../mahjong/types'
-import { tileToString, tileColor, tileDisplayChar } from '../../mahjong/tiles'
+import { tileToString } from '../../mahjong/tiles'
+import { tileFaceSVG } from '../../mahjong/tileSVG'
 import MeldGroup from '../MeldGroup'
 
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
@@ -95,11 +96,10 @@ export function HandSection({
           const isRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(idx)
           return (
             <div
-              className={`tile${canDiscard && !isRiichiInvalid ? ' discard-target' : ''}${tile === 33 ? ' chun' : ''}${insertBefore ? ' insert-before' : ''}${insertAfter ? ' insert-after' : ''}${isRiichiInvalid ? ' riichi-invalid' : ''}`}
+              className={`tile${canDiscard && !isRiichiInvalid ? ' discard-target' : ''}${insertBefore ? ' insert-before' : ''}${insertAfter ? ' insert-after' : ''}${isRiichiInvalid ? ' riichi-invalid' : ''}`}
               attrs={{ 'data-index': String(idx) }}
-              style={{ color: tileColor(tile) }}
             >
-              <span className="tile-char">{tileDisplayChar(tile)}</span>
+              {tileFaceSVG(tile)}
               {da && canDiscard && (
                 <div className="tile-tooltip">
                   <div className="tooltip-header">
@@ -129,11 +129,10 @@ export function HandSection({
             <>
               <div className="tile-gap"></div>
               <div
-                className={`tile drawn${canDiscard && !drawnIsRiichiInvalid ? ' discard-target' : ''}${winClass}${drawnTile === 33 ? ' chun' : ''}${drawnIsRiichiInvalid ? ' riichi-invalid' : ''}`}
+                className={`tile drawn${canDiscard && !drawnIsRiichiInvalid ? ' discard-target' : ''}${winClass}${drawnIsRiichiInvalid ? ' riichi-invalid' : ''}`}
                 attrs={{ 'data-index': String(hand.length) }}
-                style={{ color: tileColor(drawnTile!) }}
               >
-                <span className="tile-char">{tileDisplayChar(drawnTile!)}</span>
+                {tileFaceSVG(drawnTile!)}
                 {da && canDiscard && (
                   <div className="tile-tooltip">
                     <div className="tooltip-header">
@@ -171,9 +170,9 @@ export function HandSection({
           <span className="waiting-label">Waiting for:</span>
           <div className="waiting-tiles">
             {waitingTiles.map((w: WaitTile) => (
-              <div className="waiting-tile-item">
-                <div className={`tile-analysis${w.tile === 33 ? ' chun' : ''}`} style={{ color: tileColor(w.tile) }}>
-                  <span className="tile-char-analysis">{tileDisplayChar(w.tile)}</span>
+              <div className={`waiting-tile-item${w.remaining <= 0 ? ' waiting-tile-unavailable' : ''}`}>
+                <div className="tile-analysis">
+                  {tileFaceSVG(w.tile)}
                 </div>
                 <div className="waiting-tile-detail">
                   <span className="waiting-tile-name">{tileToString(w.tile)}</span>

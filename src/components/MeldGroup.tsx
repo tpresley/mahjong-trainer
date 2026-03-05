@@ -1,5 +1,5 @@
 import { TileId } from '../mahjong/types'
-import { tileColor, tileDisplayChar } from '../mahjong/tiles'
+import { tileFaceSVG, tileBackSVG } from '../mahjong/tileSVG'
 
 function MeldGroup({ state }: { state: {
   type: string
@@ -31,9 +31,8 @@ function MeldGroup({ state }: { state: {
           const isFaceDown = isAnkan && (tileIdx === 0 || tileIdx === 3)
           const isCalled = tileIdx === calledIndex
           return (
-            <div className={`tile-small${isCalled ? ' called-tile' : ''}${isFaceDown ? ' face-down' : ''}${tile === 33 && !isFaceDown ? ' chun' : ''}`}
-                 style={{ color: isFaceDown ? 'transparent' : tileColor(tile) }}>
-              <span className="tile-char-meld">{isFaceDown ? '\u{1F02B}' : tileDisplayChar(tile)}</span>
+            <div className={`tile-small${isCalled ? ' called-tile' : ''}${isFaceDown ? ' face-down' : ''}`}>
+              {isFaceDown ? tileBackSVG() : tileFaceSVG(tile)}
             </div>
           )
         })}
