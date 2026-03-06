@@ -9,7 +9,6 @@ import { ScoreDisplay } from './components/views/ScoreDisplay'
 import { OpponentDiscards } from './components/views/OpponentDiscards'
 import { HandSection } from './components/views/HandSection'
 import { CallDecisionBanner } from './components/views/CallDecisionBanner'
-import { UserDiscards } from './components/views/UserDiscards'
 import { AnalysisGrid } from './components/views/AnalysisGrid'
 
 type AppState = {
@@ -140,12 +139,10 @@ function RootComponent({ state }: { state: AppState & {
         hand: handToShow, drawnTile, shanten, shantenLabel, canDiscard, phase,
         isRiichi, canDeclareRiichi, isFuriten, selfKanOptions, openMelds,
         turnCount: state.turnCount, wallRemaining, discardLookup, riichiValidSet,
-        waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod,
+        waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod, discards,
       })}
 
       {CallDecisionBanner({ phase, pendingDiscard, callOptions })}
-
-      {UserDiscards({ discards })}
 
       {AnalysisGrid({ openMelds, canDiscard, drawnTile, phase })}
     </div>

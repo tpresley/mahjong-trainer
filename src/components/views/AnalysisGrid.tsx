@@ -13,7 +13,7 @@ export function AnalysisGrid({ openMelds, canDiscard, drawnTile, phase }: Analys
   return (
     <div className="analysis-grid">
       <section className="yaku-section">
-        <h2>Yaku Distances</h2>
+        <h2 className="section-label">Yaku Distances</h2>
         <p className="section-hint">
           {openMelds.length > 0 ? 'Open hand \u2014 some yaku unavailable' : 'Analysis of your hand'}
         </p>
@@ -23,7 +23,7 @@ export function AnalysisGrid({ openMelds, canDiscard, drawnTile, phase }: Analys
       </section>
 
       <section className="discard-section">
-        <h2>Discard Analysis</h2>
+        <h2 className="section-label">Discard Analysis</h2>
         <p className="section-hint">
           {canDiscard && (drawnTile !== null || phase === 'post_call_discard')
             ? 'Shanten & acceptance after discarding each tile'

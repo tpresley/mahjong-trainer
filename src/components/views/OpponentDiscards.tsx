@@ -10,6 +10,7 @@ type OpponentDiscardsProps = {
 export function OpponentDiscards({ opponentDiscards, phase, pendingDiscard }: OpponentDiscardsProps) {
   return (
     <section className="opponent-discards-section">
+      <h2 className="section-label">Opponent Discards</h2>
       <div className="opponent-discards-grid">
         {[{name: '\u5317 North', idx: 2}, {name: '\u897F West', idx: 1}, {name: '\u5357 South', idx: 0}].map(({name, idx}: {name: string; idx: number}) => (
           <div className="opponent-pile">

@@ -25,20 +25,20 @@ type HandSectionProps = {
   showDrawnTile: boolean
   tsumoInsertIdx: number
   winMethod: 'tsumo' | 'ron' | null
+  discards: TileId[]
 }
 
 export function HandSection({
   hand, drawnTile, shanten, shantenLabel, canDiscard, phase,
   isRiichi, canDeclareRiichi, isFuriten, selfKanOptions, openMelds,
   turnCount, wallRemaining, discardLookup, riichiValidSet,
-  waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod
+  waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod, discards
 }: HandSectionProps) {
   const handToShow = hand
 
   return (
     <section className="hand-section">
       <div className="hand-header">
-        <h2>Your Hand</h2>
         <div className="wind-badge">
           <span className="wind-icon">{'\u{1F000}'}</span>
           <span className="wind-text">East · Dealer</span>
@@ -222,6 +222,20 @@ export function HandSection({
       )}
       {phase === 'wall_exhausted' && (
         <p className="discard-hint">Wall exhausted &mdash; deal a new hand</p>
+      )}
+
+      {/* Player discards */}
+      {discards.length > 0 && (
+        <div className="player-discards">
+          <h3 className="section-label">Your Discards</h3>
+          <div className="discards-row">
+            {discards.map((tile: TileId) => (
+              <div className="discard-tile-styled">
+                {tileFaceSVG(tile)}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </section>
   )
