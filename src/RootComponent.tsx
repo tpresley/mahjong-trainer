@@ -1,15 +1,15 @@
-import { ABORT } from 'sygnal'
-import { TileId, YakuInfo, DiscardAnalysis, OpenMeld, CallOption, SelfKanOption, GamePhase, ScoreResult } from './mahjong/types'
+import { ABORT, xs } from 'sygnal'
+import { TileId, DiscardAnalysis, OpenMeld, CallOption, SelfKanOption, GamePhase, ScoreResult } from './mahjong/types'
 import { dealHand, sortHand, handToCountArray, removeFromHand, tileToString } from './mahjong/tiles'
 import { calculateShanten, calculateShantenWithMelds } from './mahjong/shanten'
 import { analyzeYaku, analyzeDiscards } from './mahjong/yaku'
 import { detectCallOptions, detectSelfKanOptions } from './mahjong/calls'
 import { calculateScore } from './mahjong/scoring'
-import { ScoreDisplay } from './components/views/ScoreDisplay'
-import { OpponentDiscards } from './components/views/OpponentDiscards'
-import { HandSection } from './components/views/HandSection'
-import { CallDecisionBanner } from './components/views/CallDecisionBanner'
-import { AnalysisGrid } from './components/views/AnalysisGrid'
+import ScoreDisplay from './components/views/ScoreDisplay'
+import OpponentDiscards from './components/views/OpponentDiscards'
+import HandSection from './components/views/HandSection'
+import CallDecisionBanner from './components/views/CallDecisionBanner'
+import AnalysisGrid from './components/views/AnalysisGrid'
 
 type AppState = {
   hand: TileId[]
@@ -60,36 +60,42 @@ function isStaticFuriten(hand: TileId[], discards: TileId[], openMelds: OpenMeld
   return false
 }
 
+const handSectionLens = {
+  get: (parent: any) => ({ openMelds: parent.openMelds }),
+  set: (parent: any) => parent,
+}
+
+const scoreLens = {
+  get: (parent: any) => ({ scoreYaku: parent.scoreYaku }),
+  set: (parent: any) => parent,
+}
+
+const analysisLens = {
+  get: (parent: any) => ({ yakuDistances: parent.yakuDistances, discardResults: parent.discardResults }),
+  set: (parent: any) => parent,
+}
+
 function RootComponent({ state }: { state: AppState & {
-  shanten: number
-  yakuDistances: YakuInfo[]
   discardResults: DiscardAnalysis[]
-  fullHand: TileId[]
   waitingTiles: WaitTile[]
-  canDeclareRiichi: boolean
-  isFuriten: boolean
   riichiValidDiscards: number[]
 }}) {
   const hand = state.hand || []
   const drawnTile = state.drawnTile
-  const shanten = state.shanten ?? 8
-  const yakuDistances = state.yakuDistances || []
   const discardResults = state.discardResults || []
   const discards = state.discards || []
   const opponentDiscards = state.opponentDiscards || [[], [], []]
   const openMelds = state.openMelds || []
-  const wallRemaining = (state.wall || []).length
   const phase = state.phase || 'user_discard'
   const callOptions = state.callOptions || []
   const pendingDiscard = state.pendingOpponentDiscard
   const scoreResult = state.scoreResult
   const selfKanOptions = state.selfKanOptions || []
-  const isRiichi = state.isRiichi || false
-  const canDeclareRiichi = (state as any).canDeclareRiichi || false
-  const isFuriten = (state as any).isFuriten || false
-  const riichiValidDiscards: number[] = (state as any).riichiValidDiscards || []
   const winMethod = state.winMethod
   const ronFromOpponent = state.ronFromOpponent
+  const riichiValidDiscards: number[] = state.riichiValidDiscards || []
+  const waitingTiles: WaitTile[] = state.waitingTiles || []
+  const canDiscard = phase === 'user_discard' || phase === 'post_call_discard' || phase === 'riichi_discard'
 
   if (!hand.length && phase !== 'hand_complete') {
     return <div className="app"><p>Loading...</p></div>
@@ -101,27 +107,6 @@ function RootComponent({ state }: { state: AppState & {
     discardLookup.set(d.tile, d)
   }
 
-  const shantenLabel = shanten === 0 ? 'Tenpai!' :
-    shanten === -1 ? 'Complete!' :
-    `${shanten}-shanten`
-
-  const canDiscard = phase === 'user_discard' || phase === 'post_call_discard' || phase === 'riichi_discard'
-  const riichiValidSet = new Set(riichiValidDiscards)
-
-  // Compute hand tile counts for opponent discard highlighting
-  const fullHand = state.fullHand || hand
-  const handCounts = handToCountArray(fullHand)
-
-  // In post_call_discard, the hand itself is the full set to discard from (no drawn tile)
-  const handToShow = hand
-  const showDrawnTile = (phase === 'user_discard' || phase === 'hand_complete' || phase === 'riichi_discard') && drawnTile !== null && drawnTile !== undefined
-  const waitingTiles: WaitTile[] = (state as any).waitingTiles || []
-
-  // Insertion marker: where the drawn tile would sort into the hand
-  const tsumoInsertIdx = (phase === 'hand_complete' && drawnTile !== null && drawnTile !== undefined)
-    ? handToShow.findIndex((t: TileId) => t > drawnTile!)
-    : -2 // sentinel: no marker
-
   const opponentNames = ['\u5357 South', '\u897F West', '\u5317 North']
 
   return (
@@ -131,20 +116,29 @@ function RootComponent({ state }: { state: AppState & {
         <p className="subtitle">Reach Mahjong Hand Formation</p>
       </header>
 
-      {ScoreDisplay({ phase, scoreResult, winMethod, ronFromOpponent, opponentNames })}
+      <ScoreDisplay state={scoreLens}
+        scoreResult={scoreResult} winMethod={winMethod}
+        ronFromOpponent={ronFromOpponent} opponentNames={opponentNames}
+      />
 
-      {OpponentDiscards({ opponentDiscards, phase, pendingDiscard })}
+      <OpponentDiscards
+        opponentDiscards={opponentDiscards} pendingDiscard={pendingDiscard}
+      />
 
-      {HandSection({
-        hand: handToShow, drawnTile, shanten, shantenLabel, canDiscard, phase,
-        isRiichi, canDeclareRiichi, isFuriten, selfKanOptions, openMelds,
-        turnCount: state.turnCount, wallRemaining, discardLookup, riichiValidSet,
-        waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod, discards,
-      })}
+      <HandSection state={handSectionLens}
+        hand={hand} drawnTile={drawnTile} discards={discards}
+        selfKanOptions={selfKanOptions} discardLookup={discardLookup}
+        riichiValidDiscards={riichiValidDiscards} waitingTiles={waitingTiles}
+        winMethod={winMethod}
+      />
 
-      {CallDecisionBanner({ phase, pendingDiscard, callOptions })}
+      <CallDecisionBanner
+        pendingDiscard={pendingDiscard} callOptions={callOptions}
+      />
 
-      {AnalysisGrid({ openMelds, canDiscard, drawnTile, phase })}
+      <AnalysisGrid state={analysisLens}
+        openMelds={openMelds} canDiscard={canDiscard} drawnTile={drawnTile}
+      />
     </div>
   )
 }
@@ -353,35 +347,39 @@ RootComponent.calculated = {
   },
 }
 
-RootComponent.intent = ({ DOM }: any) => ({
-  NEW_HAND: DOM.click('.new-hand-btn'),
-  DISCARD_TILE: DOM.click('.discard-target').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.discard-target')
-    return el ? parseInt(el.getAttribute('data-index'), 10) : null
-  }),
-  CALL_PON: DOM.click('.call-pon-btn'),
-  CALL_CHI: DOM.click('.call-chi-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.call-chi-btn')
-    return el ? parseInt(el.getAttribute('data-combo'), 10) : 0
-  }),
-  CALL_DAIMINKAN: DOM.click('.call-daiminkan-btn'),
-  DECLARE_ANKAN: DOM.click('.ankan-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.ankan-btn')
-    return el ? parseInt(el.getAttribute('data-tile'), 10) : null
-  }),
-  DECLARE_SHOUMINKAN: DOM.click('.shouminkan-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.shouminkan-btn')
-    return el ? parseInt(el.getAttribute('data-meld-index'), 10) : null
-  }),
-  SKIP_CALL: DOM.click('.skip-call-btn'),
-  DECLARE_RIICHI: DOM.click('.riichi-btn'),
-  CALL_RON: DOM.click('.call-ron-btn'),
-  HOVER_DISCARD: DOM.mouseenter('.discard-target').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.discard-target')
-    return el ? parseInt(el.getAttribute('data-index'), 10) : null
-  }),
-  UNHOVER_DISCARD: DOM.mouseleave('.discard-target'),
-})
+RootComponent.context = {
+  phase: (state: any) => state.phase,
+  isRiichi: (state: any) => state.isRiichi,
+  isFuriten: (state: any) => state.isFuriten,
+  canDeclareRiichi: (state: any) => state.canDeclareRiichi,
+  shanten: (state: any) => state.shanten,
+  wallRemaining: (state: any) => (state.wall || []).length,
+  turnCount: (state: any) => state.turnCount,
+}
+
+RootComponent.intent = ({ CHILD }: any) => {
+  const hand$ = CHILD.select('HandSection')
+  const call$ = CHILD.select('CallDecisionBanner')
+  const score$ = CHILD.select('ScoreDisplay')
+
+  return {
+    NEW_HAND: xs.merge(
+      hand$.filter((e: any) => e.type === 'NEW_HAND'),
+      score$.filter((e: any) => e.type === 'NEW_HAND'),
+    ),
+    DISCARD_TILE: hand$.filter((e: any) => e.type === 'DISCARD_TILE').map((e: any) => e.data),
+    HOVER_DISCARD: hand$.filter((e: any) => e.type === 'HOVER_DISCARD').map((e: any) => e.data),
+    UNHOVER_DISCARD: hand$.filter((e: any) => e.type === 'UNHOVER_DISCARD'),
+    DECLARE_ANKAN: hand$.filter((e: any) => e.type === 'DECLARE_ANKAN').map((e: any) => e.data),
+    DECLARE_SHOUMINKAN: hand$.filter((e: any) => e.type === 'DECLARE_SHOUMINKAN').map((e: any) => e.data),
+    DECLARE_RIICHI: hand$.filter((e: any) => e.type === 'DECLARE_RIICHI'),
+    CALL_PON: call$.filter((e: any) => e.type === 'CALL_PON'),
+    CALL_CHI: call$.filter((e: any) => e.type === 'CALL_CHI').map((e: any) => e.data),
+    CALL_DAIMINKAN: call$.filter((e: any) => e.type === 'CALL_DAIMINKAN'),
+    CALL_RON: call$.filter((e: any) => e.type === 'CALL_RON'),
+    SKIP_CALL: call$.filter((e: any) => e.type === 'SKIP_CALL'),
+  }
+}
 
 RootComponent.model = {
   NEW_HAND: (state: AppState) => {

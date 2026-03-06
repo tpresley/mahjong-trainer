@@ -1,13 +1,12 @@
-import { TileId, GamePhase } from '../../mahjong/types'
+import { TileId } from '../../mahjong/types'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
 
-type OpponentDiscardsProps = {
+function OpponentDiscards({ context, opponentDiscards, pendingDiscard }: {
+  context?: { phase: string }
   opponentDiscards: TileId[][]
-  phase: GamePhase
   pendingDiscard: TileId | null
-}
-
-export function OpponentDiscards({ opponentDiscards, phase, pendingDiscard }: OpponentDiscardsProps) {
+}) {
+  const phase = context?.phase || 'user_discard'
   return (
     <section className="opponent-discards-section">
       <h2 className="section-label">Opponent Discards</h2>
@@ -32,3 +31,5 @@ export function OpponentDiscards({ opponentDiscards, phase, pendingDiscard }: Op
     </section>
   )
 }
+
+export default OpponentDiscards

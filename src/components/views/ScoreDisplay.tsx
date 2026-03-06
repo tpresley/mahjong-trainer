@@ -1,16 +1,15 @@
-import { GamePhase, ScoreResult } from '../../mahjong/types'
+import { ScoreResult } from '../../mahjong/types'
 import ScoreYakuItem from '../ScoreYakuItem'
 
-type ScoreDisplayProps = {
-  phase: GamePhase
+function ScoreDisplay({ state, context, scoreResult, winMethod, ronFromOpponent, opponentNames }: {
+  state?: any
+  context?: { phase: string }
   scoreResult: ScoreResult | null
   winMethod: 'tsumo' | 'ron' | null
   ronFromOpponent: number | null
   opponentNames: string[]
-}
-
-export function ScoreDisplay({ phase, scoreResult, winMethod, ronFromOpponent, opponentNames }: ScoreDisplayProps) {
-  if (phase !== 'hand_complete') return null
+}) {
+  if (context?.phase !== 'hand_complete') return <div className="score-display-hidden" />
 
   if (!scoreResult) {
     return (
@@ -50,3 +49,13 @@ export function ScoreDisplay({ phase, scoreResult, winMethod, ronFromOpponent, o
     </div>
   )
 }
+
+ScoreDisplay.intent = ({ DOM }: any) => ({
+  NEW_HAND: DOM.click('.new-hand-btn'),
+})
+
+ScoreDisplay.model = {
+  NEW_HAND: { PARENT: () => ({ type: 'NEW_HAND' }) },
+}
+
+export default ScoreDisplay

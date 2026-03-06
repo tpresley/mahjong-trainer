@@ -1,15 +1,13 @@
-import { TileId, GamePhase, CallOption } from '../../mahjong/types'
+import { TileId, CallOption } from '../../mahjong/types'
 import { tileToString } from '../../mahjong/tiles'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
 
-type CallDecisionBannerProps = {
-  phase: GamePhase
+function CallDecisionBanner({ context, pendingDiscard, callOptions }: {
+  context?: { phase: string }
   pendingDiscard: TileId | null
   callOptions: CallOption[]
-}
-
-export function CallDecisionBanner({ phase, pendingDiscard, callOptions }: CallDecisionBannerProps) {
-  if (phase !== 'call_decision' || pendingDiscard === null) return null
+}) {
+  if (context?.phase !== 'call_decision' || pendingDiscard === null) return <div className="call-banner-hidden" />
 
   return (
     <section className="call-banner">
@@ -41,3 +39,24 @@ export function CallDecisionBanner({ phase, pendingDiscard, callOptions }: CallD
     </section>
   )
 }
+
+CallDecisionBanner.intent = ({ DOM }: any) => ({
+  PON: DOM.click('.call-pon-btn'),
+  CHI: DOM.click('.call-chi-btn').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.call-chi-btn')
+    return el ? parseInt(el.getAttribute('data-combo'), 10) : 0
+  }),
+  DAIMINKAN: DOM.click('.call-daiminkan-btn'),
+  RON: DOM.click('.call-ron-btn'),
+  SKIP: DOM.click('.skip-call-btn'),
+})
+
+CallDecisionBanner.model = {
+  PON: { PARENT: () => ({ type: 'CALL_PON' }) },
+  CHI: { PARENT: (_s: any, idx: number) => ({ type: 'CALL_CHI', data: idx }) },
+  DAIMINKAN: { PARENT: () => ({ type: 'CALL_DAIMINKAN' }) },
+  RON: { PARENT: () => ({ type: 'CALL_RON' }) },
+  SKIP: { PARENT: () => ({ type: 'SKIP_CALL' }) },
+}
+
+export default CallDecisionBanner

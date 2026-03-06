@@ -1,15 +1,15 @@
-import { TileId, GamePhase, OpenMeld } from '../../mahjong/types'
+import { TileId, OpenMeld } from '../../mahjong/types'
 import YakuItem from '../YakuItem'
 import DiscardResult from '../DiscardResult'
 
-type AnalysisGridProps = {
+function AnalysisGrid({ state, context, openMelds, canDiscard, drawnTile }: {
+  state?: any
+  context?: { phase: string }
   openMelds: OpenMeld[]
   canDiscard: boolean
   drawnTile: TileId | null
-  phase: GamePhase
-}
-
-export function AnalysisGrid({ openMelds, canDiscard, drawnTile, phase }: AnalysisGridProps) {
+}) {
+  const phase = context?.phase || 'user_discard'
   return (
     <div className="analysis-grid">
       <section className="yaku-section">
@@ -36,3 +36,5 @@ export function AnalysisGrid({ openMelds, canDiscard, drawnTile, phase }: Analys
     </div>
   )
 }
+
+export default AnalysisGrid

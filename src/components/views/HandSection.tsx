@@ -1,40 +1,43 @@
-import { TileId, DiscardAnalysis, OpenMeld, SelfKanOption, GamePhase, ScoreResult } from '../../mahjong/types'
+import { TileId, DiscardAnalysis, SelfKanOption, ScoreResult } from '../../mahjong/types'
 import { tileToString } from '../../mahjong/tiles'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
-import MeldGroup from '../MeldGroup'
+import { tileBackSVG } from '../../mahjong/tileSVG'
 
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
 
-type HandSectionProps = {
+function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardLookup, riichiValidDiscards, waitingTiles, winMethod, discards }: {
+  state?: any
+  context?: {
+    phase: string
+    isRiichi: boolean
+    isFuriten: boolean
+    canDeclareRiichi: boolean
+    shanten: number
+    wallRemaining: number
+    turnCount: number
+  }
   hand: TileId[]
   drawnTile: TileId | null
-  shanten: number
-  shantenLabel: string
-  canDiscard: boolean
-  phase: GamePhase
-  isRiichi: boolean
-  canDeclareRiichi: boolean
-  isFuriten: boolean
   selfKanOptions: SelfKanOption[]
-  openMelds: OpenMeld[]
-  turnCount: number
-  wallRemaining: number
   discardLookup: Map<number, DiscardAnalysis>
-  riichiValidSet: Set<number>
+  riichiValidDiscards: number[]
   waitingTiles: WaitTile[]
-  showDrawnTile: boolean
-  tsumoInsertIdx: number
   winMethod: 'tsumo' | 'ron' | null
   discards: TileId[]
-}
+}) {
+  const { phase = 'user_discard', isRiichi = false, isFuriten = false, canDeclareRiichi = false, shanten = 8, wallRemaining = 0, turnCount = 1 } = context || {}
+  const openMelds = state?.openMelds || []
 
-export function HandSection({
-  hand, drawnTile, shanten, shantenLabel, canDiscard, phase,
-  isRiichi, canDeclareRiichi, isFuriten, selfKanOptions, openMelds,
-  turnCount, wallRemaining, discardLookup, riichiValidSet,
-  waitingTiles, showDrawnTile, tsumoInsertIdx, winMethod, discards
-}: HandSectionProps) {
-  const handToShow = hand
+  // Computed locally from context + props
+  const shantenLabel = shanten === 0 ? 'Tenpai!' :
+    shanten === -1 ? 'Complete!' :
+    `${shanten}-shanten`
+  const canDiscard = phase === 'user_discard' || phase === 'post_call_discard' || phase === 'riichi_discard'
+  const showDrawnTile = (phase === 'user_discard' || phase === 'hand_complete' || phase === 'riichi_discard') && drawnTile !== null && drawnTile !== undefined
+  const riichiValidSet = new Set(riichiValidDiscards)
+  const tsumoInsertIdx = (phase === 'hand_complete' && drawnTile !== null && drawnTile !== undefined)
+    ? hand.findIndex((t: TileId) => t > drawnTile!)
+    : -2
 
   return (
     <section className="hand-section">
@@ -89,10 +92,10 @@ export function HandSection({
       )}
 
       <div className="hand-tiles">
-        {handToShow.map((tile: TileId, idx: number) => {
+        {hand.map((tile: TileId, idx: number) => {
           const da = discardLookup.get(tile)
           const insertBefore = tsumoInsertIdx >= 0 && tsumoInsertIdx === idx
-          const insertAfter = tsumoInsertIdx === -1 && idx === handToShow.length - 1
+          const insertAfter = tsumoInsertIdx === -1 && idx === hand.length - 1
           const isRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(idx)
           return (
             <div
@@ -160,7 +163,34 @@ export function HandSection({
       {/* Open melds */}
       {openMelds.length > 0 && (
         <div className="open-melds">
-          <collection of={MeldGroup} from="openMelds" />
+          {openMelds.map((meld: any) => {
+            const meldLabel = meld.type === 'pon' ? 'Pon' : meld.type === 'chi' ? 'Chi' : 'Kan'
+            const isAnkan = meld.type === 'ankan'
+            let calledIndex = -1
+            if (meld.calledFrom !== undefined && meld.calledTile !== null) {
+              if (meld.type === 'chi') {
+                calledIndex = meld.tiles.indexOf(meld.calledTile)
+              } else {
+                calledIndex = 2 - meld.calledFrom
+              }
+            }
+            return (
+              <div className="meld-group">
+                <span className="meld-label">{meldLabel}</span>
+                <div className="meld-tiles">
+                  {meld.tiles.map((tile: TileId, tileIdx: number) => {
+                    const isFaceDown = isAnkan && (tileIdx === 0 || tileIdx === 3)
+                    const isCalled = tileIdx === calledIndex
+                    return (
+                      <div className={`tile-small${isCalled ? ' called-tile' : ''}${isFaceDown ? ' face-down' : ''}`}>
+                        {isFaceDown ? tileBackSVG() : tileFaceSVG(tile)}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -240,3 +270,37 @@ export function HandSection({
     </section>
   )
 }
+
+HandSection.intent = ({ DOM }: any) => ({
+  DISCARD: DOM.click('.discard-target').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.discard-target')
+    return el ? parseInt(el.getAttribute('data-index'), 10) : null
+  }),
+  HOVER: DOM.select('.discard-target').events('mouseenter').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.discard-target')
+    return el ? parseInt(el.getAttribute('data-index'), 10) : null
+  }),
+  UNHOVER: DOM.select('.discard-target').events('mouseleave'),
+  ANKAN: DOM.click('.ankan-btn').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.ankan-btn')
+    return el ? parseInt(el.getAttribute('data-tile'), 10) : null
+  }),
+  SHOUMINKAN: DOM.click('.shouminkan-btn').map((e: any) => {
+    const el = e.currentTarget || e.target.closest('.shouminkan-btn')
+    return el ? parseInt(el.getAttribute('data-meld-index'), 10) : null
+  }),
+  RIICHI: DOM.click('.riichi-btn'),
+  NEW_HAND: DOM.click('.new-hand-btn'),
+})
+
+HandSection.model = {
+  DISCARD: { PARENT: (_s: any, index: number) => ({ type: 'DISCARD_TILE', data: index }) },
+  HOVER: { PARENT: (_s: any, index: number) => ({ type: 'HOVER_DISCARD', data: index }) },
+  UNHOVER: { PARENT: () => ({ type: 'UNHOVER_DISCARD' }) },
+  ANKAN: { PARENT: (_s: any, tile: number) => ({ type: 'DECLARE_ANKAN', data: tile }) },
+  SHOUMINKAN: { PARENT: (_s: any, idx: number) => ({ type: 'DECLARE_SHOUMINKAN', data: idx }) },
+  RIICHI: { PARENT: () => ({ type: 'DECLARE_RIICHI' }) },
+  NEW_HAND: { PARENT: () => ({ type: 'NEW_HAND' }) },
+}
+
+export default HandSection

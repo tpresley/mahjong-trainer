@@ -213,7 +213,7 @@ export function tileBackSVG() {
   return (
     <svg viewBox="0 0 60 80" width="100%" height="100%">
       <rect x="5" y="5" width="50" height="70" rx="3"
-            fill="#2a3a5e" stroke="#3a4a6e" stroke-width="1.5" />
+            fill="#4a6fa5" stroke="#6b8fc0" stroke-width="1.5" />
     </svg>
   )
 }
