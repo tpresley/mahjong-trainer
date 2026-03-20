@@ -358,9 +358,9 @@ RootComponent.context = {
 }
 
 RootComponent.intent = ({ CHILD }: any) => {
-  const hand$ = CHILD.select('HandSection')
-  const call$ = CHILD.select('CallDecisionBanner')
-  const score$ = CHILD.select('ScoreDisplay')
+  const hand$ = CHILD.select(HandSection)
+  const call$ = CHILD.select(CallDecisionBanner)
+  const score$ = CHILD.select(ScoreDisplay)
 
   return {
     NEW_HAND: xs.merge(
