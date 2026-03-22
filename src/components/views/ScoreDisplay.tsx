@@ -2,9 +2,11 @@ import { Collection } from 'sygnal'
 import { ScoreResult } from '../../mahjong/types'
 import ScoreYakuItem from '../ScoreYakuItem'
 
+type ScoreContext = { phase: string }
+
 function ScoreDisplay({ state, context, scoreResult, winMethod, ronFromOpponent, opponentNames }: {
   state?: any
-  context?: { phase: string }
+  context?: ScoreContext
   scoreResult: ScoreResult | null
   winMethod: 'tsumo' | 'ron' | null
   ronFromOpponent: number | null

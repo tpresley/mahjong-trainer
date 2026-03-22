@@ -1,11 +1,14 @@
 import { classes } from 'sygnal'
+import type { Component } from 'sygnal'
 
-function YakuItem({ state }: { state: {
+type YakuItemState = {
   japanese: string
   name: string
   han: number
   distance: number
-}}) {
+}
+
+const YakuItem: Component<YakuItemState> = ({ state }) => {
   return (
     <div className={classes('yaku-item', { achieved: state.distance === 0, close: state.distance > 0 && state.distance <= 2 })}>
       <div className="yaku-name">

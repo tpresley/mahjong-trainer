@@ -1,13 +1,8 @@
 import { classes } from 'sygnal'
-import { TileId } from '../mahjong/types'
+import { TileId, OpenMeld } from '../mahjong/types'
 import { tileFaceSVG, tileBackSVG } from '../mahjong/tileSVG'
 
-function MeldGroup({ state, meld }: { state?: any, meld?: {
-  type: string
-  tiles: TileId[]
-  calledTile: TileId | null
-  calledFrom?: number
-}}) {
+function MeldGroup({ state, meld }: { state?: any; meld?: OpenMeld }) {
   const m = meld || state
   const meldLabel = m.type === 'pon' ? 'Pon' : m.type === 'chi' ? 'Chi' : 'Kan'
   const isAnkan = m.type === 'ankan'

@@ -1,14 +1,17 @@
 import { classes } from 'sygnal'
+import type { Component } from 'sygnal'
 import { tileToString } from '../mahjong/tiles'
 import { tileFaceSVG } from '../mahjong/tileSVG'
 
-function DiscardResult({ state }: { state: {
+type DiscardResultState = {
   tile: number
   shantenAfter: number
   acceptance: number
   yakuChanges: { name: string; change: number }[]
   isDrawn: boolean
-}}) {
+}
+
+const DiscardResult: Component<DiscardResultState> = ({ state }) => {
   return (
     <div className={classes('discard-item', { 'is-drawn': state.isDrawn })}>
       <div className="discard-tile">

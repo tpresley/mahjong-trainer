@@ -2,8 +2,10 @@ import { classes } from 'sygnal'
 import { TileId } from '../../mahjong/types'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
 
+type OpponentDiscardsContext = { phase: string }
+
 function OpponentDiscards({ context, opponentDiscards, pendingDiscard }: {
-  context?: { phase: string }
+  context?: OpponentDiscardsContext
   opponentDiscards: TileId[][]
   pendingDiscard: TileId | null
 }) {

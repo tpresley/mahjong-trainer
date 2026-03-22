@@ -3,9 +3,11 @@ import { TileId, OpenMeld } from '../../mahjong/types'
 import YakuItem from '../YakuItem'
 import DiscardResult from '../DiscardResult'
 
+type AnalysisContext = { phase: string }
+
 function AnalysisGrid({ state, context, openMelds, canDiscard, drawnTile }: {
   state?: any
-  context?: { phase: string }
+  context?: AnalysisContext
   openMelds: OpenMeld[]
   canDiscard: boolean
   drawnTile: TileId | null

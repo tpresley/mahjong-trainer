@@ -1,4 +1,5 @@
 import { ABORT, xs } from 'sygnal'
+import type { RootComponent as RootComponentType } from 'sygnal'
 import { TileId, DiscardAnalysis, OpenMeld, CallOption, SelfKanOption, GamePhase, ScoreResult } from './mahjong/types'
 import { dealHand, sortHand, handToCountArray, removeFromHand, tileToString } from './mahjong/tiles'
 import { calculateShanten, calculateShantenWithMelds } from './mahjong/shanten'
@@ -38,6 +39,47 @@ type AppState = {
 
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
 
+type AppCalculated = {
+  fullHand: TileId[]
+  shanten: number
+  yakuDistances: { japanese: string; name: string; han: number; distance: number }[]
+  scoreYaku: { japanese: string; name: string; han: number }[]
+  selfKanOptions: SelfKanOption[]
+  canDeclareRiichi: boolean
+  isFuriten: boolean
+  riichiValidDiscards: number[]
+  waitingTiles: WaitTile[]
+  discardResults: (DiscardAnalysis & { isDrawn: boolean })[]
+  discardLookup: Map<number, DiscardAnalysis>
+}
+
+type AppContext = {
+  phase: GamePhase
+  isRiichi: boolean
+  isFuriten: boolean
+  canDeclareRiichi: boolean
+  shanten: number
+  wallRemaining: number
+  turnCount: number
+}
+
+type AppActions = {
+  NEW_HAND: null
+  DISCARD_TILE: number
+  HOVER_DISCARD: number
+  UNHOVER_DISCARD: null
+  DECLARE_ANKAN: number
+  DECLARE_SHOUMINKAN: number
+  DECLARE_RIICHI: null
+  CALL_PON: null
+  CALL_CHI: number
+  CALL_DAIMINKAN: null
+  CALL_RON: null
+  SKIP_CALL: null
+  OPPONENT_DISCARD_ROUND: null
+  CHECK_OPPONENT_DISCARD: { discards: TileId[]; index: number }
+}
+
 // Helper: check if static furiten (any waiting tile is in player's discards)
 function isStaticFuriten(hand: TileId[], discards: TileId[], openMelds: OpenMeld[]): boolean {
   const counts = handToCountArray(hand)
@@ -68,12 +110,7 @@ const analysisLens = {
   set: (parent: any) => parent,
 }
 
-function RootComponent({ state }: { state: AppState & {
-  discardResults: DiscardAnalysis[]
-  discardLookup: Map<number, DiscardAnalysis>
-  waitingTiles: WaitTile[]
-  riichiValidDiscards: number[]
-}}) {
+const RootComponent: RootComponentType<AppState, {}, AppActions, AppCalculated, AppContext> = ({ state }) => {
   const hand = state.hand || []
   const drawnTile = state.drawnTile
   const discardResults = state.discardResults || []
@@ -348,16 +385,16 @@ RootComponent.calculated = {
 }
 
 RootComponent.context = {
-  phase: (state: any) => state.phase,
-  isRiichi: (state: any) => state.isRiichi,
-  isFuriten: (state: any) => state.isFuriten,
-  canDeclareRiichi: (state: any) => state.canDeclareRiichi,
-  shanten: (state: any) => state.shanten,
-  wallRemaining: (state: any) => (state.wall || []).length,
-  turnCount: (state: any) => state.turnCount,
+  phase: (state) => state.phase,
+  isRiichi: (state) => state.isRiichi,
+  isFuriten: (state) => state.isFuriten,
+  canDeclareRiichi: (state) => state.canDeclareRiichi,
+  shanten: (state) => state.shanten,
+  wallRemaining: (state) => (state.wall || []).length,
+  turnCount: (state) => state.turnCount,
 }
 
-RootComponent.intent = ({ CHILD }: any) => {
+RootComponent.intent = ({ CHILD }) => {
   const hand$ = CHILD.select(HandSection)
   const call$ = CHILD.select(CallDecisionBanner)
   const score$ = CHILD.select(ScoreDisplay)

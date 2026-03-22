@@ -1,4 +1,5 @@
 import { classes } from 'sygnal'
+import type { Component } from 'sygnal'
 import { TileId, DiscardAnalysis, OpenMeld, SelfKanOption, ScoreResult } from '../../mahjong/types'
 import { tileToString } from '../../mahjong/tiles'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
@@ -6,16 +7,19 @@ import MeldGroup from '../MeldGroup'
 
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
 
+type HandSectionContext = {
+  phase: string
+  isRiichi: boolean
+  isFuriten: boolean
+  canDeclareRiichi: boolean
+  shanten: number
+  wallRemaining: number
+  turnCount: number
+}
+
 function HandSection({ context, hand, drawnTile, openMelds: openMeldsProp, selfKanOptions, discardLookup, riichiValidDiscards, waitingTiles, winMethod, discards }: {
-  context?: {
-    phase: string
-    isRiichi: boolean
-    isFuriten: boolean
-    canDeclareRiichi: boolean
-    shanten: number
-    wallRemaining: number
-    turnCount: number
-  }
+  state?: any
+  context?: HandSectionContext
   hand: TileId[]
   drawnTile: TileId | null
   openMelds: OpenMeld[]

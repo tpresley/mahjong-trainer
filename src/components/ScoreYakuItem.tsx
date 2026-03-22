@@ -1,8 +1,12 @@
-function ScoreYakuItem({ state }: { state: {
+import type { Component } from 'sygnal'
+
+type ScoreYakuItemState = {
   japanese: string
   name: string
   han: number
-}}) {
+}
+
+const ScoreYakuItem: Component<ScoreYakuItemState> = ({ state }) => {
   return (
     <div className="score-yaku-item">
       <span className="score-yaku-name">{state.japanese} ({state.name})</span>

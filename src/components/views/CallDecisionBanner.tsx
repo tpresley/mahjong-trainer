@@ -2,8 +2,11 @@ import { TileId, CallOption } from '../../mahjong/types'
 import { tileToString } from '../../mahjong/tiles'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
 
+type CallBannerContext = { phase: string }
+
 function CallDecisionBanner({ context, pendingDiscard, callOptions }: {
-  context?: { phase: string }
+  state?: any
+  context?: CallBannerContext
   pendingDiscard: TileId | null
   callOptions: CallOption[]
 }) {
