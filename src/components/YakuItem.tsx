@@ -1,3 +1,5 @@
+import { classes } from 'sygnal'
+
 function YakuItem({ state }: { state: {
   japanese: string
   name: string
@@ -5,7 +7,7 @@ function YakuItem({ state }: { state: {
   distance: number
 }}) {
   return (
-    <div className={`yaku-item ${state.distance === 0 ? 'achieved' : state.distance <= 2 ? 'close' : ''}`}>
+    <div className={classes('yaku-item', { achieved: state.distance === 0, close: state.distance > 0 && state.distance <= 2 })}>
       <div className="yaku-name">
         <strong>{state.japanese}</strong>
         <span className="yaku-english">{state.name}</span>

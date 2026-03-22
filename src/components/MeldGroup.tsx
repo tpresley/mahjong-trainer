@@ -1,25 +1,25 @@
+import { classes } from 'sygnal'
 import { TileId } from '../mahjong/types'
 import { tileFaceSVG, tileBackSVG } from '../mahjong/tileSVG'
 
-function MeldGroup({ state }: { state: {
+function MeldGroup({ state, meld }: { state?: any, meld?: {
   type: string
   tiles: TileId[]
   calledTile: TileId | null
   calledFrom?: number
 }}) {
-  const meldLabel = state.type === 'pon' ? 'Pon' : state.type === 'chi' ? 'Chi' : 'Kan'
-  const isAnkan = state.type === 'ankan'
+  const m = meld || state
+  const meldLabel = m.type === 'pon' ? 'Pon' : m.type === 'chi' ? 'Chi' : 'Kan'
+  const isAnkan = m.type === 'ankan'
 
   // Determine turned tile index based on opponent origin
   // kamicha(2)→left(0), toimen(1)→middle(1), shimocha(0)→right(2)
   let calledIndex = -1
-  if (state.calledFrom !== undefined && state.calledTile !== null) {
-    if (state.type === 'chi') {
-      // Chi: called tile at its natural sorted position
-      calledIndex = state.tiles.indexOf(state.calledTile)
+  if (m.calledFrom !== undefined && m.calledTile !== null) {
+    if (m.type === 'chi') {
+      calledIndex = m.tiles.indexOf(m.calledTile)
     } else {
-      // Pon/Kan: position indicates which opponent the tile came from
-      calledIndex = 2 - state.calledFrom
+      calledIndex = 2 - m.calledFrom
     }
   }
 
@@ -27,11 +27,11 @@ function MeldGroup({ state }: { state: {
     <div className="meld-group">
       <span className="meld-label">{meldLabel}</span>
       <div className="meld-tiles">
-        {state.tiles.map((tile: TileId, tileIdx: number) => {
+        {m.tiles.map((tile: TileId, tileIdx: number) => {
           const isFaceDown = isAnkan && (tileIdx === 0 || tileIdx === 3)
           const isCalled = tileIdx === calledIndex
           return (
-            <div className={`tile-small${isCalled ? ' called-tile' : ''}${isFaceDown ? ' face-down' : ''}`}>
+            <div className={classes('tile-small', { 'called-tile': isCalled, 'face-down': isFaceDown })}>
               {isFaceDown ? tileBackSVG() : tileFaceSVG(tile)}
             </div>
           )

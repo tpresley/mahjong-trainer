@@ -1,3 +1,4 @@
+import { Collection } from 'sygnal'
 import { TileId, OpenMeld } from '../../mahjong/types'
 import YakuItem from '../YakuItem'
 import DiscardResult from '../DiscardResult'
@@ -18,7 +19,7 @@ function AnalysisGrid({ state, context, openMelds, canDiscard, drawnTile }: {
           {openMelds.length > 0 ? 'Open hand \u2014 some yaku unavailable' : 'Analysis of your hand'}
         </p>
         <div className="yaku-list">
-          <collection of={YakuItem} from="yakuDistances" />
+          <Collection of={YakuItem} from="yakuDistances" />
         </div>
       </section>
 
@@ -30,7 +31,7 @@ function AnalysisGrid({ state, context, openMelds, canDiscard, drawnTile }: {
             : 'Discard a tile to continue'}
         </p>
         <div className="discard-list">
-          <collection of={DiscardResult} from="discardResults" />
+          <Collection of={DiscardResult} from="discardResults" />
         </div>
       </section>
     </div>

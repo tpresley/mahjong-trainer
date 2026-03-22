@@ -36,8 +36,6 @@ type AppState = {
   hoveredDiscardIndex: number | null
 }
 
-const initial = dealHand()
-
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
 
 // Helper: check if static furiten (any waiting tile is in player's discards)
@@ -60,11 +58,6 @@ function isStaticFuriten(hand: TileId[], discards: TileId[], openMelds: OpenMeld
   return false
 }
 
-const handSectionLens = {
-  get: (parent: any) => ({ openMelds: parent.openMelds }),
-  set: (parent: any) => parent,
-}
-
 const scoreLens = {
   get: (parent: any) => ({ scoreYaku: parent.scoreYaku }),
   set: (parent: any) => parent,
@@ -77,6 +70,7 @@ const analysisLens = {
 
 function RootComponent({ state }: { state: AppState & {
   discardResults: DiscardAnalysis[]
+  discardLookup: Map<number, DiscardAnalysis>
   waitingTiles: WaitTile[]
   riichiValidDiscards: number[]
 }}) {
@@ -97,14 +91,10 @@ function RootComponent({ state }: { state: AppState & {
   const waitingTiles: WaitTile[] = state.waitingTiles || []
   const canDiscard = phase === 'user_discard' || phase === 'post_call_discard' || phase === 'riichi_discard'
 
+  const discardLookup = state.discardLookup || new Map<number, DiscardAnalysis>()
+
   if (!hand.length && phase !== 'hand_complete') {
     return <div className="app"><p>Loading...</p></div>
-  }
-
-  // Build lookup: tileId -> discard analysis for tooltips
-  const discardLookup = new Map<number, DiscardAnalysis>()
-  for (const d of discardResults) {
-    discardLookup.set(d.tile, d)
   }
 
   const opponentNames = ['\u5357 South', '\u897F West', '\u5317 North']
@@ -125,9 +115,9 @@ function RootComponent({ state }: { state: AppState & {
         opponentDiscards={opponentDiscards} pendingDiscard={pendingDiscard}
       />
 
-      <HandSection state={handSectionLens}
+      <HandSection
         hand={hand} drawnTile={drawnTile} discards={discards}
-        selfKanOptions={selfKanOptions} discardLookup={discardLookup}
+        openMelds={openMelds} selfKanOptions={selfKanOptions} discardLookup={discardLookup}
         riichiValidDiscards={riichiValidDiscards} waitingTiles={waitingTiles}
         winMethod={winMethod}
       />
@@ -143,34 +133,37 @@ function RootComponent({ state }: { state: AppState & {
   )
 }
 
-RootComponent.initialState = {
-  hand: initial.hand,
-  drawnTile: initial.drawnTile,
-  wall: initial.wall,
-  discards: [],
-  opponentDiscards: [[], [], []],
-  turnCount: 1,
-  openMelds: [],
-  phase: 'user_discard' as GamePhase,
-  pendingOpponentDiscard: null,
-  callOptions: [],
-  remainingOpponentDiscards: [],
-  remainingOpponentIndex: 0,
-  scoreResult: null,
-  selfKanOptions: [],
-  waitingTiles: [],
-  isRiichi: false,
-  isTempFuriten: false,
-  declinedRonTiles: [],
-  winMethod: null,
-  ronFromOpponent: null,
-  isIppatsu: false,
-  isDoubleRiichi: false,
-  hoveredDiscardIndex: null,
-  canDeclareRiichi: false,
-  isFuriten: false,
-  riichiValidDiscards: [],
-} as AppState
+RootComponent.initialState = (() => {
+  const initial = dealHand()
+  return {
+    hand: initial.hand,
+    drawnTile: initial.drawnTile,
+    wall: initial.wall,
+    discards: [] as TileId[],
+    opponentDiscards: [[], [], []] as TileId[][],
+    turnCount: 1,
+    openMelds: [] as OpenMeld[],
+    phase: 'user_discard' as GamePhase,
+    pendingOpponentDiscard: null as TileId | null,
+    callOptions: [] as CallOption[],
+    remainingOpponentDiscards: [] as TileId[],
+    remainingOpponentIndex: 0,
+    scoreResult: null as ScoreResult | null,
+    selfKanOptions: [] as SelfKanOption[],
+    waitingTiles: [] as WaitTile[],
+    isRiichi: false,
+    isTempFuriten: false,
+    declinedRonTiles: [] as TileId[],
+    winMethod: null as 'tsumo' | 'ron' | null,
+    ronFromOpponent: null as number | null,
+    isIppatsu: false,
+    isDoubleRiichi: false,
+    hoveredDiscardIndex: null as number | null,
+    canDeclareRiichi: false,
+    isFuriten: false,
+    riichiValidDiscards: [] as number[],
+  }
+})()
 
 RootComponent.calculated = {
   fullHand: (state: AppState) => {
@@ -345,6 +338,13 @@ RootComponent.calculated = {
       isDrawn: d.tile === state.drawnTile,
     }))
   },
+  discardLookup: [['discardResults'], (state: any) => {
+    const lookup = new Map<number, DiscardAnalysis>()
+    for (const d of (state.discardResults || [])) {
+      lookup.set(d.tile, d)
+    }
+    return lookup
+  }],
 }
 
 RootComponent.context = {
@@ -1051,7 +1051,7 @@ RootComponent.model = {
 // Usage: setHand([0,1,2, 9,10,11, 18,19,20, 27,27,27, 28])            — draws 14th from wall
 //        setHand([0,1,2, 9,10,11, 18,19,20, 27,27,27, 28], 28)        — specific drawn tile
 //        setHand([...13], 28, [[27,27,28], [], []])                     — with opponent discards
-;(window as any).setHand = (tiles: number[], drawn?: number, oppDiscards?: number[][]) => {
+if (import.meta.env.DEV) (window as any).setHand = (tiles: number[], drawn?: number, oppDiscards?: number[][]) => {
   if (tiles.length !== 13) {
     console.error('setHand expects exactly 13 tile IDs (0-33). Got', tiles.length)
     return

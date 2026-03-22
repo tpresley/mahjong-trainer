@@ -29,7 +29,7 @@ function CallDecisionBanner({ context, pendingDiscard, callOptions }: {
         )}
         {callOptions.filter((c: CallOption) => c.type === 'chi').map((chiOpt: CallOption) =>
           chiOpt.handTiles.map((combo: TileId[], idx: number) => (
-            <button className="call-chi-btn call-btn" attrs={{ 'data-combo': String(idx) }}>
+            <button className="call-chi-btn call-btn" data-combo={String(idx)}>
               Chi ({combo.map((t: TileId) => tileToString(t)).join(' + ')})
             </button>
           ))
@@ -42,10 +42,7 @@ function CallDecisionBanner({ context, pendingDiscard, callOptions }: {
 
 CallDecisionBanner.intent = ({ DOM }: any) => ({
   PON: DOM.click('.call-pon-btn'),
-  CHI: DOM.click('.call-chi-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.call-chi-btn')
-    return el ? parseInt(el.getAttribute('data-combo'), 10) : 0
-  }),
+  CHI: DOM.click('.call-chi-btn').data('combo', Number),
   DAIMINKAN: DOM.click('.call-daiminkan-btn'),
   RON: DOM.click('.call-ron-btn'),
   SKIP: DOM.click('.skip-call-btn'),

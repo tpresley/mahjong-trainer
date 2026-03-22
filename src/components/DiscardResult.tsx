@@ -1,3 +1,4 @@
+import { classes } from 'sygnal'
 import { tileToString } from '../mahjong/tiles'
 import { tileFaceSVG } from '../mahjong/tileSVG'
 
@@ -9,7 +10,7 @@ function DiscardResult({ state }: { state: {
   isDrawn: boolean
 }}) {
   return (
-    <div className={`discard-item ${state.isDrawn ? 'is-drawn' : ''}`}>
+    <div className={classes('discard-item', { 'is-drawn': state.isDrawn })}>
       <div className="discard-tile">
         <div className="tile-analysis">
           {tileFaceSVG(state.tile)}
@@ -28,7 +29,7 @@ function DiscardResult({ state }: { state: {
       {state.yakuChanges.length > 0 && (
         <div className="yaku-changes">
           {state.yakuChanges.slice(0, 3).map((c: { name: string; change: number }) => (
-            <span className={`change ${c.change > 0 ? 'improve' : 'worsen'}`}>
+            <span className={classes('change', { improve: c.change > 0, worsen: c.change <= 0 })}>
               {c.change > 0 ? '+' : ''}{c.change} {c.name}
             </span>
           ))}

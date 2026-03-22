@@ -1,3 +1,4 @@
+import { Collection } from 'sygnal'
 import { ScoreResult } from '../../mahjong/types'
 import ScoreYakuItem from '../ScoreYakuItem'
 
@@ -28,7 +29,7 @@ function ScoreDisplay({ state, context, scoreResult, winMethod, ronFromOpponent,
       <section className="score-section">
         <h2>{winMethod === 'ron' ? 'Ron!' : 'Tsumo!'} Hand Complete!</h2>
         <div className="score-yaku-list">
-          <collection of={ScoreYakuItem} from="scoreYaku" />
+          <Collection of={ScoreYakuItem} from="scoreYaku" />
         </div>
         <div className="score-summary">
           <div className="score-han-fu">{scoreResult.totalHan} han / {scoreResult.fu} fu</div>

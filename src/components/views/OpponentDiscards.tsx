@@ -1,3 +1,4 @@
+import { classes } from 'sygnal'
 import { TileId } from '../../mahjong/types'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
 
@@ -19,7 +20,7 @@ function OpponentDiscards({ context, opponentDiscards, pendingDiscard }: {
                 const pile = opponentDiscards[idx] || []
                 const isCallTarget = phase === 'call_decision' && pendingDiscard !== null && tile === pendingDiscard && tileIdx === pile.length - 1
                 return (
-                  <div className={`discard-tile-styled${isCallTarget ? ' call-candidate' : ''}`}>
+                  <div className={classes('discard-tile-styled', { 'call-candidate': isCallTarget })}>
                     {tileFaceSVG(tile)}
                   </div>
                 )

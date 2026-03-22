@@ -1,12 +1,12 @@
-import { TileId, DiscardAnalysis, SelfKanOption, ScoreResult } from '../../mahjong/types'
+import { classes } from 'sygnal'
+import { TileId, DiscardAnalysis, OpenMeld, SelfKanOption, ScoreResult } from '../../mahjong/types'
 import { tileToString } from '../../mahjong/tiles'
 import { tileFaceSVG } from '../../mahjong/tileSVG'
-import { tileBackSVG } from '../../mahjong/tileSVG'
+import MeldGroup from '../MeldGroup'
 
 type WaitTile = { tile: TileId, remaining: number, score: ScoreResult | null }
 
-function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardLookup, riichiValidDiscards, waitingTiles, winMethod, discards }: {
-  state?: any
+function HandSection({ context, hand, drawnTile, openMelds: openMeldsProp, selfKanOptions, discardLookup, riichiValidDiscards, waitingTiles, winMethod, discards }: {
   context?: {
     phase: string
     isRiichi: boolean
@@ -18,6 +18,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
   }
   hand: TileId[]
   drawnTile: TileId | null
+  openMelds: OpenMeld[]
   selfKanOptions: SelfKanOption[]
   discardLookup: Map<number, DiscardAnalysis>
   riichiValidDiscards: number[]
@@ -26,7 +27,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
   discards: TileId[]
 }) {
   const { phase = 'user_discard', isRiichi = false, isFuriten = false, canDeclareRiichi = false, shanten = 8, wallRemaining = 0, turnCount = 1 } = context || {}
-  const openMelds = state?.openMelds || []
+  const openMelds = openMeldsProp || []
 
   // Computed locally from context + props
   const shantenLabel = shanten === 0 ? 'Tenpai!' :
@@ -46,7 +47,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
           <span className="wind-icon">{'\u{1F000}'}</span>
           <span className="wind-text">East · Dealer</span>
         </div>
-        <div className={`shanten-badge ${shanten <= 0 ? 'tenpai' : ''}`}>
+        <div className={classes('shanten-badge', { tenpai: shanten <= 0 })}>
           <span className="shanten-text">{shantenLabel}</span>
         </div>
         {isRiichi && (
@@ -78,11 +79,11 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
           <div className="kan-buttons">
             {selfKanOptions.map((opt: SelfKanOption) => (
               opt.type === 'ankan' ? (
-                <button className="ankan-btn kan-btn" attrs={{ 'data-tile': String(opt.tile) }}>
+                <button className="ankan-btn kan-btn" data-tile={String(opt.tile)}>
                   Ankan ({tileToString(opt.tile)})
                 </button>
               ) : (
-                <button className="shouminkan-btn kan-btn" attrs={{ 'data-meld-index': String(opt.meldIndex) }}>
+                <button className="shouminkan-btn kan-btn" data-meld-index={String(opt.meldIndex)}>
                   Kan ({tileToString(opt.tile)})
                 </button>
               )
@@ -99,8 +100,8 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
           const isRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(idx)
           return (
             <div
-              className={`tile${canDiscard && !isRiichiInvalid ? ' discard-target' : ''}${insertBefore ? ' insert-before' : ''}${insertAfter ? ' insert-after' : ''}${isRiichiInvalid ? ' riichi-invalid' : ''}`}
-              attrs={{ 'data-index': String(idx) }}
+              className={classes('tile', { 'discard-target': canDiscard && !isRiichiInvalid, 'insert-before': insertBefore, 'insert-after': insertAfter, 'riichi-invalid': isRiichiInvalid })}
+              data-index={String(idx)}
             >
               {tileFaceSVG(tile)}
               {da && canDiscard && (
@@ -111,7 +112,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
                   {da.yakuChanges.length > 0 ? (
                     <div className="tooltip-changes">
                       {da.yakuChanges.map((c: { name: string; change: number }) => (
-                        <div className={`tooltip-change ${c.change > 0 ? 'improve' : 'worsen'}`}>
+                        <div className={classes('tooltip-change', { improve: c.change > 0, worsen: c.change <= 0 })}>
                           {c.change > 0 ? '+' : ''}{c.change} {c.name}
                         </div>
                       ))}
@@ -127,13 +128,12 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
         {showDrawnTile && (() => {
           const da = discardLookup.get(drawnTile!)
           const drawnIsRiichiInvalid = phase === 'riichi_discard' && !riichiValidSet.has(hand.length)
-          const winClass = phase === 'hand_complete' ? (winMethod === 'ron' ? ' ron-win' : ' tsumo-win') : ''
           return (
             <>
               <div className="tile-gap"></div>
               <div
-                className={`tile drawn${canDiscard && !drawnIsRiichiInvalid ? ' discard-target' : ''}${winClass}${drawnIsRiichiInvalid ? ' riichi-invalid' : ''}`}
-                attrs={{ 'data-index': String(hand.length) }}
+                className={classes('tile', 'drawn', { 'discard-target': canDiscard && !drawnIsRiichiInvalid, 'ron-win': phase === 'hand_complete' && winMethod === 'ron', 'tsumo-win': phase === 'hand_complete' && winMethod !== 'ron', 'riichi-invalid': drawnIsRiichiInvalid })}
+                data-index={String(hand.length)}
               >
                 {tileFaceSVG(drawnTile!)}
                 {da && canDiscard && (
@@ -144,7 +144,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
                     {da.yakuChanges.length > 0 ? (
                       <div className="tooltip-changes">
                         {da.yakuChanges.map((c: { name: string; change: number }) => (
-                          <div className={`tooltip-change ${c.change > 0 ? 'improve' : 'worsen'}`}>
+                          <div className={classes('tooltip-change', { improve: c.change > 0, worsen: c.change <= 0 })}>
                             {c.change > 0 ? '+' : ''}{c.change} {c.name}
                           </div>
                         ))}
@@ -163,34 +163,9 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
       {/* Open melds */}
       {openMelds.length > 0 && (
         <div className="open-melds">
-          {openMelds.map((meld: any) => {
-            const meldLabel = meld.type === 'pon' ? 'Pon' : meld.type === 'chi' ? 'Chi' : 'Kan'
-            const isAnkan = meld.type === 'ankan'
-            let calledIndex = -1
-            if (meld.calledFrom !== undefined && meld.calledTile !== null) {
-              if (meld.type === 'chi') {
-                calledIndex = meld.tiles.indexOf(meld.calledTile)
-              } else {
-                calledIndex = 2 - meld.calledFrom
-              }
-            }
-            return (
-              <div className="meld-group">
-                <span className="meld-label">{meldLabel}</span>
-                <div className="meld-tiles">
-                  {meld.tiles.map((tile: TileId, tileIdx: number) => {
-                    const isFaceDown = isAnkan && (tileIdx === 0 || tileIdx === 3)
-                    const isCalled = tileIdx === calledIndex
-                    return (
-                      <div className={`tile-small${isCalled ? ' called-tile' : ''}${isFaceDown ? ' face-down' : ''}`}>
-                        {isFaceDown ? tileBackSVG() : tileFaceSVG(tile)}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+          {openMelds.map((meld: OpenMeld) => (
+            <MeldGroup meld={meld} />
+          ))}
         </div>
       )}
 
@@ -200,7 +175,7 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
           <span className="waiting-label">Waiting for:</span>
           <div className="waiting-tiles">
             {waitingTiles.map((w: WaitTile) => (
-              <div className={`waiting-tile-item${w.remaining <= 0 ? ' waiting-tile-unavailable' : ''}`}>
+              <div className={classes('waiting-tile-item', { 'waiting-tile-unavailable': w.remaining <= 0 })}>
                 <div className="tile-analysis">
                   {tileFaceSVG(w.tile)}
                 </div>
@@ -255,40 +230,26 @@ function HandSection({ state, context, hand, drawnTile, selfKanOptions, discardL
       )}
 
       {/* Player discards */}
-      {discards.length > 0 && (
-        <div className="player-discards">
-          <h3 className="section-label">Your Discards</h3>
-          <div className="discards-row">
-            {discards.map((tile: TileId) => (
-              <div className="discard-tile-styled">
-                {tileFaceSVG(tile)}
-              </div>
-            ))}
-          </div>
+      <div className="player-discards">
+        <h3 className="section-label">Your Discards</h3>
+        <div className="discards-row">
+          {discards.map((tile: TileId) => (
+            <div className="discard-tile-styled">
+              {tileFaceSVG(tile)}
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </section>
   )
 }
 
 HandSection.intent = ({ DOM }: any) => ({
-  DISCARD: DOM.click('.discard-target').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.discard-target')
-    return el ? parseInt(el.getAttribute('data-index'), 10) : null
-  }),
-  HOVER: DOM.select('.discard-target').events('mouseenter').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.discard-target')
-    return el ? parseInt(el.getAttribute('data-index'), 10) : null
-  }),
+  DISCARD: DOM.click('.discard-target').data('index', Number),
+  HOVER: DOM.select('.discard-target').events('mouseenter').data('index', Number),
   UNHOVER: DOM.select('.discard-target').events('mouseleave'),
-  ANKAN: DOM.click('.ankan-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.ankan-btn')
-    return el ? parseInt(el.getAttribute('data-tile'), 10) : null
-  }),
-  SHOUMINKAN: DOM.click('.shouminkan-btn').map((e: any) => {
-    const el = e.currentTarget || e.target.closest('.shouminkan-btn')
-    return el ? parseInt(el.getAttribute('data-meld-index'), 10) : null
-  }),
+  ANKAN: DOM.click('.ankan-btn').data('tile', Number),
+  SHOUMINKAN: DOM.click('.shouminkan-btn').data('meld-index', Number),
   RIICHI: DOM.click('.riichi-btn'),
   NEW_HAND: DOM.click('.new-hand-btn'),
 })
