@@ -87,7 +87,7 @@ function HandSection({ context, hand, drawnTile, openMelds: openMeldsProp, selfK
                   Ankan ({tileToString(opt.tile)})
                 </button>
               ) : (
-                <button className="shouminkan-btn kan-btn" data-meld-index={String(opt.meldIndex)}>
+                <button className="shouminkan-btn kan-btn" data-meldindex={String(opt.meldIndex)}>
                   Kan ({tileToString(opt.tile)})
                 </button>
               )
@@ -253,7 +253,7 @@ HandSection.intent = ({ DOM }: any) => ({
   HOVER: DOM.select('.discard-target').events('mouseenter').data('index', Number),
   UNHOVER: DOM.select('.discard-target').events('mouseleave'),
   ANKAN: DOM.click('.ankan-btn').data('tile', Number),
-  SHOUMINKAN: DOM.click('.shouminkan-btn').data('meld-index', Number),
+  SHOUMINKAN: DOM.click('.shouminkan-btn').data('meldindex', Number),
   RIICHI: DOM.click('.riichi-btn'),
   NEW_HAND: DOM.click('.new-hand-btn'),
 })
