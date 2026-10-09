@@ -26,7 +26,6 @@ type AppState = {
   remainingOpponentDiscards: TileId[]
   remainingOpponentIndex: number
   scoreResult: ScoreResult | null
-  selfKanOptions: SelfKanOption[]
   isRiichi: boolean
   isTempFuriten: boolean
   declinedRonTiles: TileId[]
@@ -186,8 +185,6 @@ RootComponent.initialState = (() => {
     remainingOpponentDiscards: [] as TileId[],
     remainingOpponentIndex: 0,
     scoreResult: null as ScoreResult | null,
-    selfKanOptions: [] as SelfKanOption[],
-    waitingTiles: [] as WaitTile[],
     isRiichi: false,
     isTempFuriten: false,
     declinedRonTiles: [] as TileId[],
@@ -196,9 +193,6 @@ RootComponent.initialState = (() => {
     isIppatsu: false,
     isDoubleRiichi: false,
     hoveredDiscardIndex: null as number | null,
-    canDeclareRiichi: false,
-    isFuriten: false,
-    riichiValidDiscards: [] as number[],
   }
 })()
 
@@ -445,7 +439,6 @@ RootComponent.model = {
       remainingOpponentDiscards: [],
       remainingOpponentIndex: 0,
       scoreResult: null,
-      selfKanOptions: [],
       isRiichi: false,
       isTempFuriten: false,
       declinedRonTiles: [],
